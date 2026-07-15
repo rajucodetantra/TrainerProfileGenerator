@@ -1,0 +1,10 @@
+Date,Time,Employee ID,Trainer Name,Status,Output File,Remarks
+15-07-2026,13:54:07,CT0755,Jathin Kumar Chilamakuri,FAILED,,"(-2147221008, 'CoInitialize has not been called.', None, None)"
+15-07-2026,13:56:12,CT0755,Jathin Kumar Chilamakuri,SUCCESS,,
+15-07-2026,13:56:58,CT0903,Mahesh Kumar Pothu,SUCCESS,,
+15-07-2026,14:24:52,CT0423,Vivek Bandaru,SUCCESS,,
+15-07-2026,14:24:58,CT0423,Vivek Bandaru,FAILED,,"(-2147352567, 'Exception occurred.', (0, 'Microsoft Word', 'Sorry, we couldn\'t find your file. Was it moved, renamed, or deleted?\r (""C:\\Users\\...\\CT0423_Vivek Bandaru.docx"")', 'wdmain11.chm', 24654, -2146823114), None)"
+15-07-2026,14:25:36,CT0755,Jathin Kumar Chilamakuri,SUCCESS,,
+15-07-2026,14:25:49,CT0755,Jathin Kumar Chilamakuri,SUCCESS,,
+15-07-2026,14:25:59,CT0440,Susruthi Kanaparthi,SUCCESS,,
+15-07-2026,14:26:13,CT0828,Ashwitha Chidirala,SUCCESS,,

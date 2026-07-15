@@ -1,0 +1,17 @@
+{
+    "excel_file": "data/Trainers.xlsx",
+    "sheet_name": "Trainers",
+    "template_file": "templates/Trainer_Profile_Template.docx",
+    "image_folder": "data/CTImages",
+    "docx_output": "output/DOCX",
+    "pdf_output": "output/PDF",
+    "default_rating": 5,
+    "default_output": "Word",
+    "application_name": "Trainer Profile Generator",
+    "version": "1.0.0",
+    "company_name": "CodeTantra Tech Solutions Pvt. Ltd.",
+    "company_address": "",
+    "company_email": "",
+    "company_phone": "",
+    "logo": "data/logo.png"
+}

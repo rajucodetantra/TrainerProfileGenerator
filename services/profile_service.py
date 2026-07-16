@@ -288,3 +288,7 @@ class ProfileService:
         """Accepts the explicit files collection to fix signature mismatch exceptions"""
         zip_path = os.path.join(self.config.pdf_output, "Trainer_Profiles_PDF.zip")
         return self.zip_service.create_zip(files, zip_path)
+    def get_trainer_display_list(self):
+        """Returns a list of 'Emp ID - Name' for the UI dropdowns"""
+        df = self.get_trainers()
+        return (df["Emp ID"].astype(str) + " - " + df["Name"]).tolist()

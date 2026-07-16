@@ -1,4 +1,6 @@
 import os
+import io
+import zipfile
 import pandas as pd
 import streamlit as st
 
@@ -19,47 +21,42 @@ st.title("📄 Generate Trainer Profiles")
 st.divider()
 
 # -------------------------------------------------------
+# CORE STATE PERSISTENCE (Fixes Streamlit Rerun Bug)
+# -------------------------------------------------------
+if "generation_results" not in st.session_state:
+    st.session_state.generation_results = None
+if "run_executed" not in st.session_state:
+    st.session_state.run_executed = False
+if "docx_zip_bytes" not in st.session_state:
+    st.session_state.docx_zip_bytes = None
+if "pdf_zip_bytes" not in st.session_state:
+    st.session_state.pdf_zip_bytes = None
+
+# -------------------------------------------------------
 # LOAD TRAINERS
 # -------------------------------------------------------
 trainers = service.get_trainers()
 
 # -------------------------------------------------------
-# GENERATION MODE
+# SIDEBAR / CONFIGURATION CONTROLS
 # -------------------------------------------------------
-generation_mode = st.radio(
-    "Generation Type",
-    [
-        "All Trainers",
-        "Single Trainer",
-        "Selected Trainers",
-        "By Skill",
-        "By Qualification",
-        "By Designation"
-    ],
-    horizontal=True
-)
+with st.sidebar:
+    st.header("Settings")
+    generation_mode = st.radio(
+        "Generation Type",
+        ["All Trainers", "Single Trainer", "Selected Trainers", "By Skill", "By Qualification", "By Designation"]
+    )
+    
+    output_format = st.radio(
+        "Output Format",
+        ["Word", "PDF", "Both"]
+    )
 
-# -------------------------------------------------------
-# OUTPUT FORMAT
-# -------------------------------------------------------
-output_format = st.radio(
-    "Output Format",
-    [
-        "Word",
-        "PDF",
-        "Both"
-    ],
-    horizontal=True
-)
-
-# Set output format directly on service config if needed dynamically
 if hasattr(service.config, "set_default_output"):
     service.config.set_default_output(output_format)
 
-st.divider()
-
 # -------------------------------------------------------
-# VARIABLES
+# FILTER SELECTION UI
 # -------------------------------------------------------
 selected_emp = None
 selected_trainers = None
@@ -67,272 +64,158 @@ selected_skill = None
 selected_qualification = None
 selected_designation = None
 
-# -------------------------------------------------------
-# ALL TRAINERS
-# -------------------------------------------------------
 if generation_mode == "All Trainers":
-    st.info(f"Total Trainers : {len(trainers)}")
+    st.info(f"📊 Total Trainers Found: {len(trainers)}")
 
-# -------------------------------------------------------
-# SINGLE TRAINER
-# -------------------------------------------------------
 elif generation_mode == "Single Trainer":
-    trainers["Display"] = (
-        trainers["Emp ID"].astype(str)
-        + " - "
-        + trainers["Name"]
-    )
-    selected_emp = st.selectbox(
-        "Select Trainer",
-        trainers["Display"]
-    )
+    trainers["Display"] = trainers["Emp ID"].astype(str) + " - " + trainers["Name"]
+    selected_emp = st.selectbox("Select Trainer", trainers["Display"])
 
-# -------------------------------------------------------
-# SELECTED TRAINERS
-# -------------------------------------------------------
 elif generation_mode == "Selected Trainers":
-    trainers["Display"] = (
-        trainers["Emp ID"].astype(str)
-        + " - "
-        + trainers["Name"]
-    )
-    selected_trainers = st.multiselect(
-        "Select Trainers",
-        trainers["Display"]
-    )
+    trainers["Display"] = trainers["Emp ID"].astype(str) + " - " + trainers["Name"]
+    selected_trainers = st.multiselect("Select Trainers", trainers["Display"])
 
-# -------------------------------------------------------
-# BY SKILL
-# -------------------------------------------------------
 elif generation_mode == "By Skill":
-    selected_skill = st.selectbox(
-        "Select Skill",
-        service.get_skills()
-    )
+    selected_skill = st.selectbox("Select Skill", service.get_skills())
 
-# -------------------------------------------------------
-# BY QUALIFICATION
-# -------------------------------------------------------
 elif generation_mode == "By Qualification":
-    selected_qualification = st.selectbox(
-        "Select Qualification",
-        service.get_qualifications()
-    )
+    selected_qualification = st.selectbox("Select Qualification", service.get_qualifications())
 
-# -------------------------------------------------------
-# BY DESIGNATION
-# -------------------------------------------------------
 elif generation_mode == "By Designation":
-    selected_designation = st.selectbox(
-        "Select Designation",
-        service.get_designations()
-    )
+    selected_designation = st.selectbox("Select Designation", service.get_designations())
 
 st.divider()
 
 # -------------------------------------------------------
-# PROGRESS
+# STATIC PERMANENT DOWNLOAD AREA (Always Visible)
+# -------------------------------------------------------
+st.subheader("📥 Action Center & Downloads")
+download_col1, download_col2 = st.columns(2)
+
+# These buttons are always rendered right here on the page layout, so they can never disappear.
+download_col1.download_button(
+    label="📥 Download DOCX ZIP Package",
+    data=st.session_state.docx_zip_bytes if st.session_state.docx_zip_bytes else b"",
+    file_name="DOCX_Profiles.zip",
+    mime="application/zip",
+    use_container_width=True,
+    disabled=(st.session_state.docx_zip_bytes is None),
+    key="docx_zip_action"
+)
+
+download_col2.download_button(
+    label="📥 Download PDF ZIP Package",
+    data=st.session_state.pdf_zip_bytes if st.session_state.pdf_zip_bytes else b"",
+    file_name="PDF_Profiles.zip",
+    mime="application/zip",
+    use_container_width=True,
+    disabled=(st.session_state.pdf_zip_bytes is None),
+    key="pdf_zip_action"
+)
+
+st.divider()
+
+# -------------------------------------------------------
+# PROGRESS AND ENGINE TRIGGER
 # -------------------------------------------------------
 progress_bar = st.progress(0)
 status = st.empty()
-summary = st.empty()
 
-# -------------------------------------------------------
-# CALLBACK
-# -------------------------------------------------------
 def update_progress(current, total):
     progress_bar.progress(current / total)
-    status.info(f"Generating {current} of {total}")
+    status.info(f"Processing Profile {current} of {total}...")
 
-# -------------------------------------------------------
-# GENERATE BUTTON
-# -------------------------------------------------------
-if st.button("🚀 Generate Profiles", use_container_width=True):
+if st.button("🚀 Run Profile Generator Engine", use_container_width=True, type="primary"):
+    # Clear old byte caches on new runs
+    st.session_state.docx_zip_bytes = None
+    st.session_state.pdf_zip_bytes = None
+    st.session_state.run_executed = False
+    
     try:
         results = []
 
-        # ---------------------------------------------
-        # ALL TRAINERS
-        # ---------------------------------------------
         if generation_mode == "All Trainers":
-            results = service.generate_all(
-                progress_callback=update_progress,
-                output_format=output_format
-            )
-
-        # ---------------------------------------------
-        # SINGLE TRAINER
-        # ---------------------------------------------
+            results = service.generate_all(progress_callback=update_progress, output_format=output_format)
         elif generation_mode == "Single Trainer":
             if selected_emp is None:
-                st.warning("Please select a trainer.")
+                st.warning("Please select a valid trainer targeting vector.")
                 st.stop()
-            
             emp_id = selected_emp.split(" - ")[0]
-            result = service.generate_single(
-                emp_id,
-                output_format=output_format
-            )
+            result = service.generate_single(emp_id, output_format=output_format)
             results = [result]
-            progress_bar.progress(1.0)
-
-        # ---------------------------------------------
-        # SELECTED TRAINERS
-        # ---------------------------------------------
         elif generation_mode == "Selected Trainers":
             if not selected_trainers:
-                st.warning("Please select one or more trainers.")
+                st.warning("No trainers highlighted for rendering targets.")
                 st.stop()
-            
             emp_ids = [item.split(" - ")[0] for item in selected_trainers]
-            results = service.generate_selected(
-                emp_ids,
-                progress_callback=update_progress,
-                output_format=output_format
-            )
-
-        # ---------------------------------------------
-        # BY SKILL
-        # ---------------------------------------------
+            results = service.generate_selected(emp_ids, progress_callback=update_progress, output_format=output_format)
         elif generation_mode == "By Skill":
-            results = service.generate_by_skill(
-                selected_skill,
-                progress_callback=update_progress,
-                output_format=output_format
-            )
-
-        # ---------------------------------------------
-        # BY QUALIFICATION
-        # ---------------------------------------------
+            results = service.generate_by_skill(selected_skill, progress_callback=update_progress, output_format=output_format)
         elif generation_mode == "By Qualification":
-            results = service.generate_by_qualification(
-                selected_qualification,
-                progress_callback=update_progress,
-                output_format=output_format
-            )
-
-        # ---------------------------------------------
-        # BY DESIGNATION
-        # ---------------------------------------------
+            results = service.generate_by_qualification(selected_qualification, progress_callback=update_progress, output_format=output_format)
         else:
-            results = service.generate_by_designation(
-                selected_designation,
-                progress_callback=update_progress,
-                output_format=output_format
-            )
+            results = service.generate_by_designation(selected_designation, progress_callback=update_progress, output_format=output_format)
 
-        # ---------------------------------------------
-        # SUCCESS / FAILED SPLIT
-        # ---------------------------------------------
+        st.session_state.generation_results = results
         success = [item for item in results if item["success"]]
-        failed = [item for item in results if not item["success"]]
 
-        summary.success(
-            f"Generation Completed\n\n✅ Successful : {len(success)}\n❌ Failed : {len(failed)}"
-        )
+        # --- PROCESS IN-MEMORY DOCX ZIP ---
+        docx_paths = [item["docx"] for item in success if item.get("docx") and os.path.exists(item["docx"])]
+        if docx_paths:
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+                for path in docx_paths:
+                    zf.write(path, arcname=os.path.basename(path))
+            st.session_state.docx_zip_bytes = zip_buffer.getvalue()
+
+        # --- PROCESS IN-MEMORY PDF ZIP ---
+        pdf_paths = [item["pdf"] for item in success if item.get("pdf") and os.path.exists(item["pdf"])]
+        if pdf_paths:
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+                for path in pdf_paths:
+                    zf.write(path, arcname=os.path.basename(path))
+            st.session_state.pdf_zip_bytes = zip_buffer.getvalue()
+
+        st.session_state.run_executed = True
         progress_bar.progress(1.0)
-
-        # ---------------------------------------------
-        # SUCCESS TABLE
-        # ---------------------------------------------
-        if success:
-            st.subheader("Generated Profiles")
-            success_df = pd.DataFrame([
-                {
-                    "Employee ID": item["employee_id"],
-                    "Trainer": item["trainer"],
-                    "DOCX": item["docx"],
-                    "PDF": item["pdf"]
-                }
-                for item in success
-            ])
-            st.dataframe(
-                success_df,
-                use_container_width=True,
-                hide_index=True
-            )
-
-        # ---------------------------------------------
-        # FAILED TABLE
-        # ---------------------------------------------
-        if failed:
-            st.subheader("Failed Profiles")
-            failed_df = pd.DataFrame([
-                {
-                    "Employee ID": item["employee_id"],
-                    "Trainer": item["trainer"],
-                    "Reason": item["message"]
-                }
-                for item in failed
-            ])
-            st.dataframe(
-                failed_df,
-                use_container_width=True,
-                hide_index=True
-            )
-
-        # ---------------------------------------------
-        # OUTPUT SUMMARY
-        # ---------------------------------------------
-        output = service.output_summary()
-        st.divider()
-        st.subheader("Output Summary")
-
-        col1, col2 = st.columns(2)
-        col1.metric("DOCX Files", output["docx"])
-        col2.metric("PDF Files", output["pdf"])
-
-        # ---------------------------------------------
-        # DOWNLOAD ZIP FILES
-        # ---------------------------------------------
-        st.divider()
-        st.subheader("Download Generated Profiles")
-        download_col1, download_col2 = st.columns(2)
-
-        if output["docx"] > 0:
-            # Passes docx paths for zipping if expected by ZipService
-            docx_paths = [item["docx"] for item in success if item["docx"]]
-            zip_file = service.create_docx_zip(docx_paths) if docx_paths else service.create_docx_zip()
-            
-            if os.path.exists(zip_file):
-                with open(zip_file, "rb") as file:
-                    download_col1.download_button(
-                        label="📥 Download DOCX ZIP",
-                        data=file,
-                        file_name="DOCX_Profiles.zip",
-                        mime="application/zip",
-                        use_container_width=True
-                    )
-
-        if output["pdf"] > 0:
-            # Passes pdf paths for zipping if expected by ZipService
-            pdf_paths = [item["pdf"] for item in success if item["pdf"]]
-            zip_file = service.create_pdf_zip(pdf_paths) if pdf_paths else service.create_pdf_zip()
-            
-            if os.path.exists(zip_file):
-                with open(zip_file, "rb") as file:
-                    download_col2.download_button(
-                        label="📥 Download PDF ZIP",
-                        data=file,
-                        file_name="PDF_Profiles.zip",
-                        mime="application/zip",
-                        use_container_width=True
-                    )
-
-        # ---------------------------------------------
-        # OPEN OUTPUT FOLDER
-        # ---------------------------------------------
-        st.divider()
-        if st.button("📂 Open Output Folder", use_container_width=True):
-            output_folder = os.path.abspath("output")
-            os.startfile(output_folder)
+        status.empty()
+        st.rerun()  # Instantly update button states to 'Active'
 
     except Exception as e:
-        st.error(str(e))
+        st.error(f"Engine Crash Context: {str(e)}")
+
+# -------------------------------------------------------
+# POST-RUN DATA VIEWS
+# -------------------------------------------------------
+if st.session_state.run_executed and st.session_state.generation_results:
+    results = st.session_state.generation_results
+    success = [item for item in results if item["success"]]
+    failed = [item for item in results if not item["success"]]
+
+    st.success(f"Execution Summary: Successfully Compiled {len(success)} profiles. (Failed: {len(failed)})")
+
+    if success:
+        st.subheader("Generated Records Log")
+        st.dataframe(
+            pd.DataFrame([{
+                "ID": item["employee_id"], 
+                "Trainer Name": item["trainer"], 
+                "DOCX Link": item["docx"] if item["docx"] else "Skipped", 
+                "PDF Link": item["pdf"] if item["pdf"] else "Failed/Missing Engine"
+            } for item in success]), 
+            use_container_width=True, hide_index=True
+        )
+
+    if failed:
+        st.subheader("Failed Pipeline Exceptions")
+        st.dataframe(
+            pd.DataFrame([{"ID": item["employee_id"], "Name": item["trainer"], "Error Message": item["message"]} for item in failed]), 
+            use_container_width=True, hide_index=True
+        )
 
 # -------------------------------------------------------
 # FOOTER
 # -------------------------------------------------------
 st.divider()
-st.caption("Trainer Profile Generator")
-st.caption("CodeTantra Tech Solutions Pvt. Ltd.")
+st.caption("Trainer Profile Generator | CodeTantra Tech Solutions Pvt. Ltd.")

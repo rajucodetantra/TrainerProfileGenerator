@@ -280,9 +280,11 @@ class ProfileService:
         return {"docx": docx_count, "pdf": pdf_count}
 
     def create_docx_zip(self, files):
+        """Accepts the explicit files collection to fix signature mismatch exceptions"""
         zip_path = os.path.join(self.config.docx_output, "Trainer_Profiles_DOCX.zip")
         return self.zip_service.create_zip(files, zip_path)
 
     def create_pdf_zip(self, files):
+        """Accepts the explicit files collection to fix signature mismatch exceptions"""
         zip_path = os.path.join(self.config.pdf_output, "Trainer_Profiles_PDF.zip")
         return self.zip_service.create_zip(files, zip_path)

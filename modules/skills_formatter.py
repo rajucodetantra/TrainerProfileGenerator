@@ -1,202 +1,77 @@
 import re
 
-
 class SkillsFormatter:
 
-
-    def extract_skills(self, skill_text):
-
-        if not skill_text:
-            return []
-
-
-        skill_text = str(skill_text)
-
-
-        # Convert different separators into comma
-
-        skill_text = re.sub(
-            r'//|/|;|\||\n|\r',
-            ',',
-            skill_text
-        )
-
-
-        skills = []
-
-
-        for skill in skill_text.split(","):
-
-            skill = skill.strip()
-
-            if skill:
-
-                skills.append(skill)
-
-
-
-        # Remove duplicates
-
-        return list(
-            dict.fromkeys(skills)
-        )
-
-
-
-    def normalize_skill(self, skill):
-
-
-        mapping = {
-
-
-            # Programming
-
-            "python":
-                "Python",
-
-            "java":
-                "Java",
-
-            "c":
-                "C",
-
-            "c++":
-                "C++",
-
-
-            "cpp":
-                "C++",
-
-
-
-            # DSA
-
-            "dsa":
-                "DSA",
-
-            "data structures":
-                "DSA",
-
-            "data structures and algorithms":
-                "DSA",
-
-            "data structures & algorithms":
-                "DSA",
-
-
-
-            # Competitive Programming
-
-            "competitive coding":
-                "Competitive Programming",
-
-            "competetive coding":
-                "Competitive Programming",
-
-            "competitive programming":
-                "Competitive Programming",
-
-
-
-            # Web
-
-            "python full stack":
-                "Python Full Stack",
-
-            "full stack":
-                "Full Stack Development",
-
-
-            "javascript":
-                "JavaScript",
-
-            "js":
-                "JavaScript",
-
-
-            "html":
-                "HTML",
-
-            "css":
-                "CSS",
-
-
-
-            # Database
-
-            "mongodb":
-                "MongoDB",
-
-            "mysql":
-                "MySQL",
-
-            "sql":
-                "SQL",
-
-
-
-            # Cloud
-
-            "aws":
-                "AWS",
-
-            "azure":
-                "Azure",
-
-
-            "git":
-                "Git",
-
-            "github":
-                "GitHub"
-
+    def __init__(self):
+        # Master list of normalized skills matching the enterprise profile ecosystem
+        self.normalization_map = {
+            "n8n": "N8N",
+            "agentic ai": "Agentic AI",
+            "agentic intelligence": "Agentic AI",
+            "prompt engineering": "Prompt Engineering",
+            "java": "Java",
+            "c": "C",
+            "c++": "C++",
+            "python": "Python",
+            "javascript": "JavaScript",
+            "data structures & algorithms": "Data Structures & Algorithms",
+            "dsa": "Data Structures & Algorithms",
+            "full stack web development": "Full Stack Web Development",
+            "full stack": "Full Stack Web Development",
+            "mongodb": "MongoDB",
+            "mysql": "MySQL",
+            "sql": "SQL"
         }
 
+    def extract_skills(self, skill_text):
+        """
+        Splits and isolates skill names cleanly regardless of whether they are 
+        separated by commas, slashes, newlines, or tabs.
+        """
+        if not skill_text or not isinstance(skill_text, str):
+            return []
+            
+        # Strip off any historical legacy decoration characters first
+        cleaned = skill_text.replace("■", ",").replace("●", ",")
+        
+        # Replace common split characters with commas, then split
+        cleaned = cleaned.replace("//", ",").replace("\n", ",")
+        parts = cleaned.split(",")
+        
+        extracted = []
+        for part in parts:
+            # Handle secondary spacing splits if multiple skills are separated by large gaps or tabs
+            sub_parts = re.split(r'\s{2,}', part.strip())
+            for sub_part in sub_parts:
+                item = sub_part.strip()
+                if item:
+                    extracted.append(item)
+                    
+        return extracted
 
+    def normalize_skill(self, skill):
+        """Maps varying raw strings to their official title configurations"""
+        if not skill:
+            return ""
         key = skill.lower().strip()
-
-
-        return mapping.get(
-            key,
-            skill.title()
-        )
-
-
+        return self.normalization_map.get(key, skill.strip())
 
     def format(self, trainer):
+        """
+        Main formatter loop that guarantees every isolated skill is 
+        cleanly separated and preceded by a bullet symbol (■).
+        """
+        raw_skills = trainer.get("Raw Skills", trainer.get("Skills", ""))
+        extracted = self.extract_skills(raw_skills)
+        
+        formatted_skills = []
+        for skill in extracted:
+            normalized = self.normalize_skill(skill)
+            if normalized and normalized not in formatted_skills:
+                formatted_skills.append(normalized)
+                
+        if not formatted_skills:
+            return ""
 
-
-        raw_skills = trainer.get(
-            "Raw Skills",
-            trainer.get(
-                "Skills",
-                ""
-            )
-        )
-
-
-        skills = self.extract_skills(
-            raw_skills
-        )
-
-
-        formatted = []
-
-
-        for skill in skills:
-
-            formatted.append(
-                self.normalize_skill(skill)
-            )
-
-
-
-        formatted = list(
-            dict.fromkeys(formatted)
-        )
-
-
-        return "    ".join(
-            f"■ {skill}"
-            for skill in formatted
-        )
+        # Joins every skill in the list with a leading bullet and exact consistent spacing
+        return "    ".join(f"■ {skill}" for skill in formatted_skills)

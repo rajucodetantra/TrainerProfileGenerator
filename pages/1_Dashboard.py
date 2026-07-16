@@ -123,11 +123,11 @@ st.divider()
 
 st.subheader("Technology Distribution")
 
-if "Core Skills" in df.columns:
+if "Skills" in df.columns:
 
     skills = []
 
-    for value in df["Core Skills"].fillna(""):
+    for value in df["Skills"].fillna(""):
 
         value = (
             str(value)
@@ -169,7 +169,7 @@ if "Core Skills" in df.columns:
 else:
 
     st.warning(
-        "'Core Skills' column not found in Excel."
+        "'Skills' column not found in Excel."
     )
 
 # -------------------------------------------------

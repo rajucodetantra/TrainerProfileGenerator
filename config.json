@@ -6,7 +6,7 @@
     "docx_output": "output/DOCX",
     "pdf_output": "output/PDF",
     "default_rating": 5,
-    "default_output": "Word",
+    "default_output": "PDF",
     "application_name": "Trainer Profile Generator",
     "version": "1.0.0",
     "company_name": "CodeTantra Tech Solutions Pvt. Ltd.",

@@ -171,10 +171,12 @@ if uploaded_files:
 
             st.success("PDFs combined successfully.")
 
-            col1, col2 = st.columns(2)try:
-            download_path = DownloadService.save_to_downloads(
-                result["output"]
-            )
+            col1, col2 = st.columns(2)
+
+            try:
+                download_path = DownloadService.save_to_downloads(
+                    result["output"]
+                )
             except Exception:
             # Streamlit Cloud/Linux doesn't have a Windows Downloads folder
                 download_path = "Downloaded using the button below."

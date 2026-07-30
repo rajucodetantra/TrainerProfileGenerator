@@ -7,3 +7,4 @@ matplotlib
 plotly
 reportlab
 pypdf
+pdf2docx

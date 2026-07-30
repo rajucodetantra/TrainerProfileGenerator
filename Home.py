@@ -1,6 +1,9 @@
 import streamlit as st
 from pathlib import Path
+from login import check_login
 
+if not check_login():
+    st.stop()
 # -------------------------------
 # Page Configuration
 # -------------------------------

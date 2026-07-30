@@ -49,7 +49,6 @@ class Experience:
             return (
                 f"{years} Years "
                 f"{months} Months "
-                f"{days} Days"
             )
 
 

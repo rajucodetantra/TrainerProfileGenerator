@@ -95,6 +95,10 @@ if uploaded_files:
 
     st.markdown("---")
 
+    # Reset uploaded file pointers before counting pages
+    for pdf in st.session_state.pdf_order:
+        pdf.seek(0)
+
     total_pages = service.get_total_pages(
         st.session_state.pdf_order
     )
@@ -142,6 +146,10 @@ if uploaded_files:
 
         progress.progress(25)
 
+        # Reset uploaded file pointers before merging
+        for pdf in st.session_state.pdf_order:
+            pdf.seek(0)
+
         result = service.merge_files(
             st.session_state.pdf_order,
             OUTPUT_FOLDER
@@ -159,13 +167,17 @@ if uploaded_files:
 
             logger.info("PDF Merge Completed")
 
-            download_path = DownloadService.save_to_downloads(
-                result["output"]
-            )
+            
 
             st.success("PDFs combined successfully.")
 
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2)try:
+            download_path = DownloadService.save_to_downloads(
+                result["output"]
+            )
+            except Exception:
+            # Streamlit Cloud/Linux doesn't have a Windows Downloads folder
+                download_path = "Downloaded using the button below."
 
             with col1:
 
@@ -185,9 +197,7 @@ if uploaded_files:
                 f"File Size : {FileUtils.file_size(result['output'])}"
             )
 
-            st.success(
-                f"Automatically saved to\n\n{download_path}"
-            )
+            st.success(download_path)
 
             with open(result["output"], "rb") as pdf:
 

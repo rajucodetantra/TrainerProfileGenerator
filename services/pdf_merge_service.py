@@ -5,14 +5,7 @@ from pypdf import PdfReader, PdfWriter
 
 class PDFMergeService:
     """
-    Service for merging multiple PDF files into a single PDF.
-
-    Features
-    --------
-    • Merge uploaded PDF files
-    • Merge PDFs from file paths
-    • Output file name:
-        CTCombined.pdf
+    Service for merging multiple PDF files.
     """
 
     DEFAULT_OUTPUT_NAME = "CTCombined.pdf"
@@ -24,20 +17,6 @@ class PDFMergeService:
         os.makedirs(output_folder, exist_ok=True)
 
     def merge_files(self, uploaded_files, output_folder):
-        """
-        Merge uploaded Streamlit PDF files.
-
-        Parameters
-        ----------
-        uploaded_files : list
-            List returned by st.file_uploader()
-
-        output_folder : str
-
-        Returns
-        -------
-        dict
-        """
 
         self._ensure_output_folder(output_folder)
 
@@ -53,12 +32,20 @@ class PDFMergeService:
 
             for uploaded_file in uploaded_files:
 
+                # IMPORTANT
+                uploaded_file.seek(0)
+
+                data = uploaded_file.read()
+
+                if not data:
+                    continue
+
                 temp_file = tempfile.NamedTemporaryFile(
                     delete=False,
                     suffix=".pdf"
                 )
 
-                temp_file.write(uploaded_file.read())
+                temp_file.write(data)
                 temp_file.close()
 
                 temp_files.append(temp_file.name)
@@ -67,6 +54,14 @@ class PDFMergeService:
 
                 for page in reader.pages:
                     writer.add_page(page)
+
+            if len(writer.pages) == 0:
+                return {
+                    "success": False,
+                    "output": "",
+                    "pages": 0,
+                    "error": "No valid PDF pages found."
+                }
 
             with open(output_pdf, "wb") as output:
                 writer.write(output)
@@ -90,22 +85,13 @@ class PDFMergeService:
         finally:
 
             for file in temp_files:
-                if os.path.exists(file):
-                    os.remove(file)
+                try:
+                    if os.path.exists(file):
+                        os.remove(file)
+                except:
+                    pass
 
     def merge_paths(self, pdf_paths, output_folder):
-        """
-        Merge PDF files using their file paths.
-
-        Parameters
-        ----------
-        pdf_paths : list
-        output_folder : str
-
-        Returns
-        -------
-        dict
-        """
 
         self._ensure_output_folder(output_folder)
 
@@ -128,6 +114,14 @@ class PDFMergeService:
                 for page in reader.pages:
                     writer.add_page(page)
 
+            if len(writer.pages) == 0:
+                return {
+                    "success": False,
+                    "output": "",
+                    "pages": 0,
+                    "error": "No valid PDF pages found."
+                }
+
             with open(output_pdf, "wb") as output:
                 writer.write(output)
 
@@ -148,9 +142,6 @@ class PDFMergeService:
             }
 
     def get_total_pages(self, uploaded_files):
-        """
-        Returns total pages in all uploaded PDFs.
-        """
 
         total_pages = 0
         temp_files = []
@@ -159,12 +150,20 @@ class PDFMergeService:
 
             for uploaded_file in uploaded_files:
 
+                # IMPORTANT
+                uploaded_file.seek(0)
+
+                data = uploaded_file.read()
+
+                if not data:
+                    continue
+
                 temp_file = tempfile.NamedTemporaryFile(
                     delete=False,
                     suffix=".pdf"
                 )
 
-                temp_file.write(uploaded_file.read())
+                temp_file.write(data)
                 temp_file.close()
 
                 temp_files.append(temp_file.name)
@@ -175,13 +174,14 @@ class PDFMergeService:
 
             return total_pages
 
-        except:
-
+        except Exception:
             return 0
 
         finally:
 
             for file in temp_files:
-
-                if os.path.exists(file):
-                    os.remove(file)
+                try:
+                    if os.path.exists(file):
+                        os.remove(file)
+                except:
+                    pass

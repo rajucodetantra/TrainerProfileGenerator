@@ -108,8 +108,10 @@ class ProfileService:
             generator = WordGenerator(self.config.template_file, trainer)
             generator.generate(docx_file)
             if generate_pdf: self.pdf_service.convert(docx_file, pdf_file)
-            if (output_format == "PDF" or self.config.default_output == "PDF") and os.path.exists(docx_file):
-                os.remove(docx_file)
+            
+            if output_format == "PDF":
+                if os.path.exists(docx_file):
+                    os.remove(docx_file)
                 docx_file = ""
             self.write_log(emp_id, trainer["Name"], "SUCCESS", docx_file if docx_file else pdf_file, "")
             return {"success": True, "employee_id": emp_id, "trainer": trainer["Name"], "docx": docx_file, "pdf": pdf_file if generate_pdf else "", "message": "Generated Successfully"}

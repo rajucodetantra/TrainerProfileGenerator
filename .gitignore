@@ -10,3 +10,24 @@ output/
 logs/
 
 .vscode/
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Output folders
+output/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,4 +1,25 @@
 import streamlit as st
+
+from login import require_login
+
+
+# =========================================================
+# PAGE CONFIG
+# =========================================================
+
+st.set_page_config(
+    page_title="Page Name",
+    page_icon="📄",
+    layout="wide"
+)
+
+
+# =========================================================
+# LOGIN
+# =========================================================
+
+require_login()
+import streamlit as st
 import pandas as pd
 from pathlib import Path
 

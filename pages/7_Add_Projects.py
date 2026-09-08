@@ -1,4 +1,24 @@
+import streamlit as st
 
+from login import require_login
+
+
+# =========================================================
+# PAGE CONFIG
+# =========================================================
+
+st.set_page_config(
+    page_title="Page Name",
+    page_icon="📄",
+    layout="wide"
+)
+
+
+# =========================================================
+# LOGIN
+# =========================================================
+
+require_login()
 import io
 import re
 import random
@@ -210,6 +230,30 @@ def load_project_pool(file_mtime):
 # TECHNOLOGY / TOPIC MATCHING
 # ============================================================
 
+# Standard skill / technology choices used by the
+# "Add Skills for Projects" option.
+PROJECT_SKILL_OPTIONS = [
+    "C Programming",
+    "C++ Programming",
+    "Python Programming",
+    "Python Full Stack",
+    "Java Full Stack",
+    "Gen AI",
+    "Agentic AI",
+    "Web Development",
+    "MERN",
+    "MEAN",
+    "Cyber Security",
+    "Cloud Computing",
+    "DSA Using C",
+    "DSA Using Python",
+    "DSA Using Java",
+    "Competitive Coding Using C",
+    "Competitive Coding Using Python",
+    "Competitive Coding Using Java",
+    "Data Analytics using R",
+]
+
 DSA_TERMS = (
     "dsa",
     "data structure",
@@ -328,26 +372,72 @@ def project_matches_topic(subject, topic):
     if not s or not t:
         return False
 
-    # Strong direct match for custom/new technology names.
+    # Strong direct match first.
     if t in s:
         return True
 
-    # Known topic rules.
+    # --------------------------------------------------------
+    # C / C++
+    # --------------------------------------------------------
     if t in ("c", "c programming", "c language"):
         return is_c_subject(s)
 
-    if t == "java":
+    if t in ("c++", "c++ programming", "cpp"):
+        return any(token in s for token in ("c++", "c plus plus", "cpp"))
+
+    # --------------------------------------------------------
+    # Java / Python
+    # --------------------------------------------------------
+    if t in ("java", "java programming"):
         return bool(re.search(r"\bjava\b", s))
+
+    if t in ("python", "python programming"):
+        return bool(re.search(r"\bpython\b", s))
+
+    # Full-stack selections
+    if t == "java full stack":
+        return bool(re.search(r"\bjava\b", s)) and any(
+            token in s for token in ("full stack", "fullstack", "web development", "spring boot")
+        )
+
+    if t == "python full stack":
+        return bool(re.search(r"\bpython\b", s)) and any(
+            token in s for token in ("full stack", "fullstack", "web development", "django", "flask")
+        )
+
+    # --------------------------------------------------------
+    # DSA
+    # --------------------------------------------------------
+    if t in ("dsa using c", "c dsa", "data structures using c"):
+        return is_c_subject(s) and is_dsa(s)
 
     if t in ("dsa using java", "java dsa"):
         return bool(re.search(r"\bjava\b", s)) and is_dsa(s)
 
-    if t == "python":
-        return bool(re.search(r"\bpython\b", s))
-
     if t in ("dsa using python", "python dsa"):
         return bool(re.search(r"\bpython\b", s)) and is_dsa(s)
 
+    # --------------------------------------------------------
+    # Competitive Coding
+    # --------------------------------------------------------
+    if t == "competitive coding using c":
+        return is_c_subject(s) and any(
+            token in s for token in ("competitive coding", "competitive programming", "problem solving")
+        )
+
+    if t == "competitive coding using python":
+        return bool(re.search(r"\bpython\b", s)) and any(
+            token in s for token in ("competitive coding", "competitive programming", "problem solving")
+        )
+
+    if t == "competitive coding using java":
+        return bool(re.search(r"\bjava\b", s)) and any(
+            token in s for token in ("competitive coding", "competitive programming", "problem solving")
+        )
+
+    # --------------------------------------------------------
+    # Web stacks
+    # --------------------------------------------------------
     if t in ("web development", "web"):
         return any(
             token in s
@@ -360,6 +450,7 @@ def project_matches_topic(subject, topic):
                 "node",
                 "express",
                 "mern",
+                "mean",
                 "full stack",
                 "fullstack",
                 "django",
@@ -367,13 +458,32 @@ def project_matches_topic(subject, topic):
             )
         )
 
-    if t in ("mongodb", "mongo db"):
-        return "mongodb" in s or "mongo db" in s
+    if t == "mern":
+        return "mern" in s or all(token in s for token in ("mongo", "express", "react", "node"))
 
-    if t in ("database sql dbms", "database", "sql", "dbms"):
-        return any(token in s for token in ("sql", "dbms", "mysql", "database"))
+    if t == "mean":
+        return "mean" in s or all(token in s for token in ("mongo", "express", "angular", "node"))
 
-    if t in ("ai ml genai", "ai", "machine learning", "genai"):
+    # --------------------------------------------------------
+    # AI
+    # --------------------------------------------------------
+    if t in ("gen ai", "genai", "generative ai"):
+        return any(
+            token in s
+            for token in (
+                "genai",
+                "gen ai",
+                "generative ai",
+                "prompt engineering",
+                "llm",
+                "large language model",
+            )
+        )
+
+    if t == "agentic ai":
+        return any(token in s for token in ("agentic ai", "ai agent", "agents", "langgraph"))
+
+    if t in ("ai ml genai", "ai", "machine learning"):
         return any(
             token in s
             for token in (
@@ -385,18 +495,32 @@ def project_matches_topic(subject, topic):
                 "agentic ai",
                 "prompt engineering",
                 "llm",
-                "ai ",
             )
+        )
+
+    # --------------------------------------------------------
+    # Cyber / Cloud / Analytics
+    # --------------------------------------------------------
+    if t in ("cyber security", "cybersecurity"):
+        return "cyber security" in s or "cybersecurity" in s
+
+    if t in ("cloud", "cloud computing"):
+        return any(token in s for token in ("aws", "azure", "gcp", "cloud"))
+
+    if t == "data analytics using r":
+        return any(token in s for token in ("data analytics", "data analysis", "analytics")) and (
+            bool(re.search(r"\br\b", s)) or "r programming" in s or "using r" in s
         )
 
     if t in ("data science analytics", "data science", "data analytics"):
         return any(token in s for token in ("data science", "data analytics", "data analysis"))
 
-    if t in ("cyber security", "cybersecurity"):
-        return "cyber security" in s or "cybersecurity" in s
+    # Existing auxiliary topics supported by the page.
+    if t in ("mongodb", "mongo db"):
+        return "mongodb" in s or "mongo db" in s
 
-    if t == "cloud":
-        return any(token in s for token in ("aws", "azure", "gcp", "cloud"))
+    if t in ("database sql dbms", "database", "sql", "dbms"):
+        return any(token in s for token in ("sql", "dbms", "mysql", "database"))
 
     if t == "devops":
         return "devops" in s
@@ -905,68 +1029,53 @@ def render_page():
         )
 
     elif selection_mode == "Add Skills for Projects":
-        st.markdown("### 3. Add Skills / Technologies")
+        st.markdown("### 3. Select Skills / Technologies")
 
         st.caption(
-            "Enter one skill or technology in each box. "
-            "Click **Add One More Skill / Technology** for another box."
+            "Select one or more skills. The selected technologies will be used "
+            "to choose or generate projects for every uploaded trainer profile."
         )
 
-        if "ap_topic_count" not in st.session_state:
-            st.session_state.ap_topic_count = 1
+        skill_columns = st.columns(3)
 
-        for index in range(st.session_state.ap_topic_count):
-            value = st.text_input(
-                f"Skill / Technology {index + 1}",
-                key=f"ap_topic_{index}",
-                placeholder="Example: Python / Java / React Native / Snowflake",
-            )
-            if clean_text(value):
-                manual_topics.append(clean_text(value))
+        for index, skill in enumerate(PROJECT_SKILL_OPTIONS):
+            with skill_columns[index % 3]:
+                if st.checkbox(
+                    skill,
+                    key=f"ap_skill_checkbox_{index}",
+                ):
+                    manual_topics.append(skill)
 
-        add_col, remove_col, reset_col = st.columns(3)
+        action_col1, action_col2 = st.columns([1, 2])
 
-        with add_col:
+        with action_col1:
             if st.button(
-                "➕ Add One More Skill / Technology",
+                "↺ Clear Selected Skills",
                 use_container_width=True,
             ):
-                st.session_state.ap_topic_count += 1
+                for index in range(len(PROJECT_SKILL_OPTIONS)):
+                    st.session_state.pop(f"ap_skill_checkbox_{index}", None)
                 st.rerun()
 
-        with remove_col:
-            if st.button(
-                "➖ Remove Last",
-                use_container_width=True,
-                disabled=st.session_state.ap_topic_count <= 1,
-            ):
-                last_index = st.session_state.ap_topic_count - 1
-                st.session_state.pop(f"ap_topic_{last_index}", None)
-                st.session_state.ap_topic_count -= 1
-                st.rerun()
-
-        with reset_col:
-            if st.button("↺ Reset Skills", use_container_width=True):
-                for index in range(st.session_state.ap_topic_count):
-                    st.session_state.pop(f"ap_topic_{index}", None)
-                st.session_state.ap_topic_count = 1
-                st.rerun()
-
-        if manual_topics:
-            st.success("Projects will use: " + ", ".join(manual_topics))
-        else:
-            st.warning("Enter at least one skill / technology.")
+        with action_col2:
+            if manual_topics:
+                st.success(
+                    f"{len(manual_topics)} skill(s) selected: "
+                    + ", ".join(manual_topics)
+                )
+            else:
+                st.warning("Select at least one skill / technology.")
 
         if len(manual_topics) > int(number_of_projects):
             st.warning(
-                "You entered more technologies than the number of projects. "
-                "Increase the project count if you want at least one project for every technology."
+                "You selected more technologies than the number of projects. "
+                "Increase the project count if you want at least one project for every selected technology."
             )
 
         st.caption(
-            "If a technology is not present in CTProjects.xlsx, "
+            "If a selected technology is not available in CTProjects.xlsx, "
             "the app uses a real College / Client and Location from CTProjects.xlsx "
-            "and uses your entered technology as the Domain / Subject Area."
+            "and uses the selected technology as the Domain / Subject Area."
         )
 
     else:

@@ -1,3 +1,24 @@
+import streamlit as st
+
+from login import require_login
+
+
+# =========================================================
+# PAGE CONFIG
+# =========================================================
+
+st.set_page_config(
+    page_title="Page Name",
+    page_icon="📄",
+    layout="wide"
+)
+
+
+# =========================================================
+# LOGIN
+# =========================================================
+
+require_login()
 import os
 import streamlit as st
 

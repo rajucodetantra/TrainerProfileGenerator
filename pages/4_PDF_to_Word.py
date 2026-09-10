@@ -1,17 +1,18 @@
+
+import shutil
 import streamlit as st
+from services.zip_service import ZipService
+from services.pdf_word_service import PDFWordService
 
 from login import require_login
 
-
+from ui_styles import apply_global_styles
+import os
 # =========================================================
 # PAGE CONFIG
 # =========================================================
 
-st.set_page_config(
-    page_title="Page Name",
-    page_icon="📄",
-    layout="wide"
-)
+
 
 
 # =========================================================
@@ -19,11 +20,7 @@ st.set_page_config(
 # =========================================================
 
 require_login()
-import os
-import shutil
-import streamlit as st
-from services.zip_service import ZipService
-from services.pdf_word_service import PDFWordService
+
 
 zip_service = ZipService()
 st.set_page_config(

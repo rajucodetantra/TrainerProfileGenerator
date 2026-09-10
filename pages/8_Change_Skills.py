@@ -1,26 +1,4 @@
 import streamlit as st
-
-from login import require_login
-
-
-# =========================================================
-# PAGE CONFIG
-# =========================================================
-
-st.set_page_config(
-    page_title="Page Name",
-    page_icon="📄",
-    layout="wide"
-)
-
-
-# =========================================================
-# LOGIN
-# =========================================================
-
-require_login()
-import streamlit as st
-
 from docx import Document
 from io import BytesIO
 from pathlib import Path
@@ -29,6 +7,24 @@ from docx.oxml.ns import qn
 
 import zipfile
 import re
+from login import require_login
+from ui_styles import apply_global_styles
+
+# =========================================================
+# PAGE CONFIG
+# =========================================================
+
+
+
+
+# =========================================================
+# LOGIN
+# =========================================================
+
+require_login()
+
+
+
 
 
 # =========================================================

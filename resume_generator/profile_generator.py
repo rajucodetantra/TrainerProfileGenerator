@@ -1,4 +1,5 @@
 from pathlib import Path
+from copy import deepcopy
 import re
 
 from docx import Document
@@ -16,8 +17,8 @@ from docx.oxml.ns import qn
 
 def iter_paragraphs(parent):
     """
-    Iterate through all paragraphs in a document,
-    including paragraphs inside table cells.
+    Iterate through all paragraphs, including
+    paragraphs inside table cells.
     """
 
     for paragraph in parent.paragraphs:
@@ -29,9 +30,23 @@ def iter_paragraphs(parent):
 
             for cell in row.cells:
 
-                yield from iter_paragraphs(
-                    cell
-                )
+                yield from iter_paragraphs(cell)
+
+
+# =========================================================
+# GET FULL PARAGRAPH TEXT
+# =========================================================
+
+def get_paragraph_text(paragraph):
+    """
+    Get complete paragraph text even when Word
+    has divided the text into multiple runs.
+    """
+
+    return "".join(
+        run.text
+        for run in paragraph.runs
+    )
 
 
 # =========================================================
@@ -44,18 +59,11 @@ def replace_text_in_paragraph(
 ):
     """
     Replace placeholders while preserving
-    formatting as much as possible.
-
-    Supports placeholders like:
-
-    {{Name}}
-    {{Emp ID}}
-    {{Skills}}
-    {{Summary}}
+    the existing Word formatting as much as possible.
     """
 
     # -----------------------------------------------------
-    # Normal replacement inside individual runs
+    # First try replacing inside individual runs
     # -----------------------------------------------------
 
     for run in paragraph.runs:
@@ -70,42 +78,41 @@ def replace_text_in_paragraph(
                 )
 
     # -----------------------------------------------------
-    # Some Word documents split placeholders
-    # across multiple runs.
-    # Example:
-    # {{Na + me}}
+    # Word can split a placeholder across runs.
+    # Handle that case also.
     # -----------------------------------------------------
 
-    full_text = "".join(
-        run.text
-        for run in paragraph.runs
+    full_text = get_paragraph_text(
+        paragraph
     )
 
-    placeholder_found = False
+    found = False
 
     for old_text in replacements:
 
         if old_text in full_text:
 
-            placeholder_found = True
+            found = True
             break
 
-    if not placeholder_found:
+    if not found:
         return
 
-    new_text = full_text
+    new_full_text = full_text
 
-    for old_text, new_value in replacements.items():
+    for old_text, new_text in replacements.items():
 
-        new_text = new_text.replace(
-            old_text,
-            str(new_value or "")
+        new_full_text = (
+            new_full_text.replace(
+                old_text,
+                str(new_text or "")
+            )
         )
 
     if paragraph.runs:
 
         paragraph.runs[0].text = (
-            new_text
+            new_full_text
         )
 
         for run in paragraph.runs[1:]:
@@ -115,7 +122,7 @@ def replace_text_in_paragraph(
     else:
 
         paragraph.add_run(
-            new_text
+            new_full_text
         )
 
 
@@ -128,16 +135,12 @@ def replace_all_placeholders(
     replacements
 ):
     """
-    Replace placeholders in:
-
-    - Document body
-    - Tables
-    - Headers
-    - Footers
+    Replace placeholders in body, tables,
+    headers and footers.
     """
 
     # -----------------------------------------------------
-    # Main body + tables
+    # Document body
     # -----------------------------------------------------
 
     for paragraph in iter_paragraphs(
@@ -183,8 +186,8 @@ def insert_photo(
     photo_path
 ):
     """
-    Find {{Image}} in the Word template
-    and replace it with the trainer photo.
+    Find {{Image}} and replace it with
+    the extracted candidate photo.
     """
 
     if not photo_path:
@@ -201,9 +204,8 @@ def insert_photo(
         document
     ):
 
-        full_text = "".join(
-            run.text
-            for run in paragraph.runs
+        full_text = get_paragraph_text(
+            paragraph
         )
 
         if "{{Image}}" not in full_text:
@@ -221,7 +223,7 @@ def insert_photo(
             )
 
         # -------------------------------------------------
-        # Insert photo
+        # Insert candidate photo
         # -------------------------------------------------
 
         picture_run = (
@@ -243,7 +245,7 @@ def insert_photo(
 
 
 # =========================================================
-# TABLE CELL SHADING
+# TABLE CELL BACKGROUND
 # =========================================================
 
 def set_cell_shading(
@@ -251,7 +253,7 @@ def set_cell_shading(
     fill
 ):
     """
-    Set background color of a table cell.
+    Set table cell background color.
     """
 
     tc_pr = (
@@ -280,7 +282,7 @@ def set_cell_vertical_center(
     cell
 ):
     """
-    Vertically center cell contents.
+    Vertically center table cell contents.
     """
 
     tc_pr = (
@@ -309,13 +311,11 @@ def set_table_borders(
     table
 ):
     """
-    Add borders directly using Word XML.
+    Add table borders directly through Word XML.
 
-    This avoids dependency on Word table styles
-    such as 'Table Grid'.
-
-    Therefore this works even when the template
-    does not contain the Table Grid style.
+    Important:
+    This does NOT depend on the 'Table Grid'
+    Word style.
     """
 
     table_xml = (
@@ -393,14 +393,480 @@ def set_table_borders(
 
 
 # =========================================================
-# SET TABLE WIDTHS
+# FIND PARAGRAPH
+# =========================================================
+
+def find_paragraph(
+    document,
+    text
+):
+    """
+    Find a paragraph by visible text.
+    """
+
+    target = (
+        text.strip()
+        .lower()
+        .rstrip(":")
+    )
+
+    for paragraph in iter_paragraphs(
+        document
+    ):
+
+        current = (
+            get_paragraph_text(
+                paragraph
+            )
+            .strip()
+            .lower()
+            .rstrip(":")
+        )
+
+        if current == target:
+            return paragraph
+
+    return None
+
+
+# =========================================================
+# CREATE SECTION HEADING
+# =========================================================
+
+def create_section_heading(
+    document,
+    heading_text,
+    reference_heading="Professional Certifications"
+):
+    """
+    Create a new section heading.
+
+    Whenever possible, formatting is copied from
+    an existing template heading so that the new
+    Experience section matches the original design.
+    """
+
+    new_paragraph = (
+        document.add_paragraph()
+    )
+
+    reference = find_paragraph(
+        document,
+        reference_heading
+    )
+
+    # -----------------------------------------------------
+    # Copy paragraph formatting from existing heading
+    # -----------------------------------------------------
+
+    if (
+        reference is not None
+        and reference._p.pPr is not None
+    ):
+
+        new_paragraph._p.insert(
+            0,
+            deepcopy(
+                reference._p.pPr
+            )
+        )
+
+    new_run = (
+        new_paragraph.add_run(
+            heading_text
+        )
+    )
+
+    # -----------------------------------------------------
+    # Copy run formatting from reference heading
+    # -----------------------------------------------------
+
+    if reference is not None:
+
+        for reference_run in (
+            reference.runs
+        ):
+
+            if reference_run.text.strip():
+
+                if (
+                    reference_run._r.rPr
+                    is not None
+                ):
+
+                    new_run._r.insert(
+                        0,
+                        deepcopy(
+                            reference_run._r.rPr
+                        )
+                    )
+
+                break
+
+    else:
+
+        # -------------------------------------------------
+        # Fallback formatting
+        # -------------------------------------------------
+
+        new_run.bold = True
+
+        new_run.font.size = (
+            Pt(12)
+        )
+
+        new_run.font.color.rgb = (
+            RGBColor(
+                31,
+                78,
+                121
+            )
+        )
+
+    return new_paragraph
+
+
+# =========================================================
+# EXPERIENCE TABLE WIDTHS
+# =========================================================
+
+def set_experience_table_widths(
+    table
+):
+    """
+    Set approximate column widths for:
+
+    S.No
+    Name of Organization
+    Years Worked
+    """
+
+    widths = [
+        Inches(0.60),
+        Inches(4.55),
+        Inches(2.10)
+    ]
+
+    for row in table.rows:
+
+        for index, width in enumerate(
+            widths
+        ):
+
+            if index < len(
+                row.cells
+            ):
+
+                row.cells[
+                    index
+                ].width = width
+
+
+# =========================================================
+# CLEAN EXPERIENCE VALUE
+# =========================================================
+
+def clean_experience_value(
+    value
+):
+
+    if value is None:
+        return ""
+
+    value = str(
+        value
+    ).strip()
+
+    if value.lower() in [
+        "none",
+        "nan"
+    ]:
+
+        return ""
+
+    return value
+
+
+# =========================================================
+# ADD PROFESSIONAL EXPERIENCE TABLE
+# =========================================================
+
+def add_experience_table(
+    document,
+    experience_details
+):
+    """
+    Add professional experience only when
+    organization + employment period information
+    has been extracted from the resume.
+
+    Format:
+
+    S.No | Name of Organization | Years Worked
+    """
+
+    if not experience_details:
+        return
+
+    valid_experience = []
+
+    for item in experience_details:
+
+        organization = (
+            clean_experience_value(
+                item.get(
+                    "Name of Organization",
+                    ""
+                )
+            )
+        )
+
+        years_worked = (
+            clean_experience_value(
+                item.get(
+                    "Years Worked",
+                    ""
+                )
+            )
+        )
+
+        # -------------------------------------------------
+        # Organization is required.
+        # Do not invent organization details.
+        # -------------------------------------------------
+
+        if not organization:
+            continue
+
+        valid_experience.append(
+            {
+                "Name of Organization":
+                    organization,
+
+                "Years Worked":
+                    years_worked
+            }
+        )
+
+    if not valid_experience:
+        return
+
+    # -----------------------------------------------------
+    # We insert the table immediately before
+    # Professional Certifications.
+    # -----------------------------------------------------
+
+    certifications_heading = (
+        find_paragraph(
+            document,
+            "Professional Certifications"
+        )
+    )
+
+    # -----------------------------------------------------
+    # Fallback if template heading differs
+    # -----------------------------------------------------
+
+    if certifications_heading is None:
+
+        certifications_heading = (
+            find_paragraph(
+                document,
+                "Professional Highlights"
+            )
+        )
+
+    if certifications_heading is None:
+        return
+
+    # -----------------------------------------------------
+    # Create Experience heading
+    # -----------------------------------------------------
+
+    experience_heading = (
+        create_section_heading(
+            document,
+            "Professional Experience"
+        )
+    )
+
+    # -----------------------------------------------------
+    # Create table
+    # -----------------------------------------------------
+
+    table = document.add_table(
+        rows=1,
+        cols=3
+    )
+
+    table.alignment = (
+        WD_TABLE_ALIGNMENT.CENTER
+    )
+
+    set_table_borders(
+        table
+    )
+
+    # -----------------------------------------------------
+    # Header row
+    # -----------------------------------------------------
+
+    headers = [
+        "S.No",
+        "Name of Organization",
+        "Years Worked"
+    ]
+
+    header_cells = (
+        table.rows[0].cells
+    )
+
+    for index, header in enumerate(
+        headers
+    ):
+
+        cell = (
+            header_cells[index]
+        )
+
+        cell.text = header
+
+        set_cell_shading(
+            cell,
+            "1F4E78"
+        )
+
+        set_cell_vertical_center(
+            cell
+        )
+
+        for paragraph in (
+            cell.paragraphs
+        ):
+
+            paragraph.alignment = (
+                WD_ALIGN_PARAGRAPH.CENTER
+            )
+
+            for run in (
+                paragraph.runs
+            ):
+
+                run.bold = True
+
+                run.font.size = (
+                    Pt(9)
+                )
+
+                run.font.color.rgb = (
+                    RGBColor(
+                        255,
+                        255,
+                        255
+                    )
+                )
+
+    # -----------------------------------------------------
+    # Experience rows
+    # -----------------------------------------------------
+
+    for serial_no, item in enumerate(
+        valid_experience,
+        start=1
+    ):
+
+        cells = (
+            table.add_row().cells
+        )
+
+        cells[0].text = str(
+            serial_no
+        )
+
+        cells[1].text = (
+            item[
+                "Name of Organization"
+            ]
+        )
+
+        cells[2].text = (
+            item[
+                "Years Worked"
+            ]
+        )
+
+        for cell_index, cell in enumerate(
+            cells
+        ):
+
+            set_cell_vertical_center(
+                cell
+            )
+
+            for paragraph in (
+                cell.paragraphs
+            ):
+
+                if cell_index == 0:
+
+                    paragraph.alignment = (
+                        WD_ALIGN_PARAGRAPH.CENTER
+                    )
+
+                else:
+
+                    paragraph.alignment = (
+                        WD_ALIGN_PARAGRAPH.LEFT
+                    )
+
+                for run in (
+                    paragraph.runs
+                ):
+
+                    run.font.size = (
+                        Pt(9)
+                    )
+
+    # -----------------------------------------------------
+    # Apply borders again after adding rows
+    # -----------------------------------------------------
+
+    set_table_borders(
+        table
+    )
+
+    set_experience_table_widths(
+        table
+    )
+
+    # -----------------------------------------------------
+    # Position:
+    #
+    # Professional Summary
+    # Summary content
+    # Professional Experience
+    # Experience table
+    # Professional Certifications
+    # -----------------------------------------------------
+
+    certifications_heading._p.addprevious(
+        experience_heading._p
+    )
+
+    certifications_heading._p.addprevious(
+        table._tbl
+    )
+
+
+# =========================================================
+# PROJECT TABLE WIDTHS
 # =========================================================
 
 def set_project_table_widths(
     table
 ):
     """
-    Set approximate widths for project table columns.
+    Set approximate widths for project table.
     """
 
     widths = [
@@ -433,36 +899,17 @@ def find_training_projects_heading(
     document
 ):
     """
-    Find paragraph containing:
-
-    Training Projects:
+    Locate Training Projects heading.
     """
-
-    for paragraph in document.paragraphs:
-
-        text = (
-            paragraph.text
-            .strip()
-            .lower()
-        )
-
-        if text.startswith(
-            "training projects"
-        ):
-
-            return paragraph
-
-    # -----------------------------------------------------
-    # Fallback:
-    # search inside tables
-    # -----------------------------------------------------
 
     for paragraph in iter_paragraphs(
         document
     ):
 
         text = (
-            paragraph.text
+            get_paragraph_text(
+                paragraph
+            )
             .strip()
             .lower()
         )
@@ -477,40 +924,31 @@ def find_training_projects_heading(
 
 
 # =========================================================
-# REMOVE TRAINING PROJECT PLACEHOLDER
+# REMOVE PROJECT PLACEHOLDER
 # =========================================================
 
 def remove_empty_project_placeholder(
     document
 ):
     """
-    Remove {{Training Projects}}
-    if present in template.
-
-    Actual projects are inserted
-    using a Word table.
+    Remove {{Training Projects}} if it exists.
     """
-
-    replacements = {
-        "{{Training Projects}}": ""
-    }
 
     replace_all_placeholders(
         document,
-        replacements
+        {
+            "{{Training Projects}}": ""
+        }
     )
 
 
 # =========================================================
-# CLEAN PROJECT VALUES
+# CLEAN PROJECT VALUE
 # =========================================================
 
 def clean_project_value(
     value
 ):
-    """
-    Convert None / NaN-like values to blank.
-    """
 
     if value is None:
         return ""
@@ -530,7 +968,7 @@ def clean_project_value(
 
 
 # =========================================================
-# ADD TRAINING PROJECTS TABLE
+# ADD TRAINING PROJECTS
 # =========================================================
 
 def add_training_projects(
@@ -538,10 +976,7 @@ def add_training_projects(
     projects
 ):
     """
-    Insert Training Projects table below the
-    Training Projects heading.
-
-    Columns:
+    Create:
 
     S.No
     College / Client
@@ -557,10 +992,6 @@ def add_training_projects(
 
     if heading is None:
         return
-
-    # -----------------------------------------------------
-    # Remove completely empty project entries
-    # -----------------------------------------------------
 
     valid_projects = []
 
@@ -661,7 +1092,7 @@ def add_training_projects(
     )
 
     # -----------------------------------------------------
-    # Create table
+    # Project table
     # -----------------------------------------------------
 
     table = document.add_table(
@@ -673,24 +1104,9 @@ def add_training_projects(
         WD_TABLE_ALIGNMENT.CENTER
     )
 
-    # -----------------------------------------------------
-    # IMPORTANT FIX:
-    #
-    # Do NOT use:
-    #
-    # table.style = "Table Grid"
-    #
-    # because your template does not
-    # contain that style.
-    # -----------------------------------------------------
-
     set_table_borders(
         table
     )
-
-    # -----------------------------------------------------
-    # Table Header
-    # -----------------------------------------------------
 
     headers = [
         "S.No",
@@ -711,9 +1127,7 @@ def add_training_projects(
             header_cells[index]
         )
 
-        cell.text = (
-            header
-        )
+        cell.text = header
 
         set_cell_shading(
             cell,
@@ -751,7 +1165,7 @@ def add_training_projects(
                 )
 
     # -----------------------------------------------------
-    # Add project rows
+    # Project rows
     # -----------------------------------------------------
 
     for serial_no, project in enumerate(
@@ -817,10 +1231,6 @@ def add_training_projects(
                         Pt(8.5)
                     )
 
-    # -----------------------------------------------------
-    # Apply borders again after adding rows
-    # -----------------------------------------------------
-
     set_table_borders(
         table
     )
@@ -829,17 +1239,9 @@ def add_training_projects(
         table
     )
 
-    # -----------------------------------------------------
-    # Put Completed Projects immediately after heading
-    # -----------------------------------------------------
-
     heading._p.addnext(
         completed_para._p
     )
-
-    # -----------------------------------------------------
-    # Put table after Completed Projects
-    # -----------------------------------------------------
 
     completed_para._p.addnext(
         table._tbl
@@ -847,18 +1249,14 @@ def add_training_projects(
 
 
 # =========================================================
-# REMOVE UNUSED PLACEHOLDERS
+# REMOVE REMAINING PLACEHOLDERS
 # =========================================================
 
 def remove_remaining_placeholders(
     document
 ):
     """
-    Remove remaining placeholders such as:
-
-    {{Something}}
-
-    if they were not populated.
+    Remove unused {{...}} placeholders.
     """
 
     placeholder_pattern = (
@@ -871,9 +1269,10 @@ def remove_remaining_placeholders(
         document
     ):
 
-        full_text = "".join(
-            run.text
-            for run in paragraph.runs
+        full_text = (
+            get_paragraph_text(
+                paragraph
+            )
         )
 
         if not full_text:
@@ -909,16 +1308,12 @@ def remove_remaining_placeholders(
 
 
 # =========================================================
-# REMOVE UNUSED PLACEHOLDERS FROM HEADERS / FOOTERS
+# REMOVE HEADER / FOOTER PLACEHOLDERS
 # =========================================================
 
 def remove_header_footer_placeholders(
     document
 ):
-    """
-    Remove unused placeholders from
-    headers and footers.
-    """
 
     placeholder_pattern = (
         re.compile(
@@ -937,9 +1332,10 @@ def remove_header_footer_placeholders(
                 container
             ):
 
-                full_text = "".join(
-                    run.text
-                    for run in paragraph.runs
+                full_text = (
+                    get_paragraph_text(
+                        paragraph
+                    )
                 )
 
                 cleaned_text = (
@@ -949,18 +1345,16 @@ def remove_header_footer_placeholders(
                     )
                 )
 
-                if (
-                    cleaned_text
-                    == full_text
-                ):
-
+                if cleaned_text == full_text:
                     continue
 
                 if paragraph.runs:
 
                     paragraph.runs[
                         0
-                    ].text = cleaned_text
+                    ].text = (
+                        cleaned_text
+                    )
 
                     for run in (
                         paragraph.runs[1:]
@@ -985,15 +1379,12 @@ def generate_profile(
     data,
     profile_type,
     photo_path=None,
-    projects=None
+    projects=None,
+    experience_details=None
 ):
     """
-    Generate Technical Trainer or
-    Aptitude Trainer Word profile.
-
-    The original Word template is opened and
-    populated, so the CodeTantra logo, formatting,
-    page layout and existing design are retained.
+    Generate Technical Trainer or Aptitude Trainer
+    profile using the selected Word template.
     """
 
     template_path = Path(
@@ -1029,13 +1420,13 @@ def generate_profile(
     ):
 
         raise ValueError(
-            "Invalid profile type. "
-            "Expected 'Technical Trainer' "
-            "or 'Aptitude Trainer'."
+            "Profile type must be "
+            "'Technical Trainer' or "
+            "'Aptitude Trainer'."
         )
 
     # -----------------------------------------------------
-    # Create destination folder
+    # Create output directory
     # -----------------------------------------------------
 
     output_path.parent.mkdir(
@@ -1044,7 +1435,9 @@ def generate_profile(
     )
 
     # -----------------------------------------------------
-    # Open template
+    # Open the selected template.
+    #
+    # Logo and existing design are retained.
     # -----------------------------------------------------
 
     document = Document(
@@ -1052,7 +1445,7 @@ def generate_profile(
     )
 
     # =====================================================
-    # INSERT PHOTO FIRST
+    # PHOTO
     # =====================================================
 
     insert_photo(
@@ -1061,14 +1454,31 @@ def generate_profile(
     )
 
     # =====================================================
-    # PLACEHOLDER MAPPING
+    # EXPERIENCE TABLE
+    #
+    # Insert BEFORE normal placeholder replacement so
+    # template section formatting can be copied.
+    # =====================================================
+
+    if experience_details is None:
+
+        experience_details = (
+            data.get(
+                "Experience Details",
+                []
+            )
+        )
+
+    add_experience_table(
+        document,
+        experience_details
+    )
+
+    # =====================================================
+    # PLACEHOLDER VALUES
     # =====================================================
 
     replacements = {
-
-        # -------------------------------------------------
-        # Common Fields
-        # -------------------------------------------------
 
         "{{Name}}":
             data.get(
@@ -1161,7 +1571,7 @@ def generate_profile(
             ),
 
         # -------------------------------------------------
-        # Aptitude Trainer Fields
+        # Aptitude Trainer
         # -------------------------------------------------
 
         "{{Subjects Handled}}":
@@ -1189,7 +1599,7 @@ def generate_profile(
             ),
 
         # -------------------------------------------------
-        # Technical Trainer Fields
+        # Technical Trainer
         # -------------------------------------------------
 
         "{{LeetCode Profile Link}}":
@@ -1252,9 +1662,11 @@ def generate_profile(
 
     if projects is None:
 
-        projects = data.get(
-            "Training Projects",
-            []
+        projects = (
+            data.get(
+                "Training Projects",
+                []
+            )
         )
 
     add_training_projects(
@@ -1263,7 +1675,7 @@ def generate_profile(
     )
 
     # =====================================================
-    # REMOVE ANY UNUSED PLACEHOLDERS
+    # CLEAN UNUSED PLACEHOLDERS
     # =====================================================
 
     remove_remaining_placeholders(
@@ -1275,7 +1687,7 @@ def generate_profile(
     )
 
     # =====================================================
-    # SAVE FINAL WORD FILE
+    # SAVE WORD FILE
     # =====================================================
 
     document.save(

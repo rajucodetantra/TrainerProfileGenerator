@@ -51,6 +51,7 @@ SECTION_HEADINGS = [
 # =========================================================
 
 APTITUDE_SUBJECTS = {
+
     "Quantitative Aptitude": [
         "quantitative aptitude",
         "quant aptitude"
@@ -99,8 +100,8 @@ APTITUDE_SUBJECTS = {
 
     "Group Discussion": [
         "group discussion",
-        "gd practice",
-        "group discussions"
+        "group discussions",
+        "gd practice"
     ],
 
     "Placement Aptitude": [
@@ -121,6 +122,7 @@ APTITUDE_SUBJECTS = {
 # =========================================================
 
 TECHNICAL_SUBJECTS = {
+
     "Python": [
         "python programming",
         "python"
@@ -205,6 +207,7 @@ TECHNICAL_SUBJECTS = {
 # =========================================================
 
 EXAM_EXPERTISE = {
+
     "Campus Recruitment Training": [
         "campus recruitment",
         "campus placement",
@@ -213,8 +216,7 @@ EXAM_EXPERTISE = {
     ],
 
     "Campus Placements": [
-        "campus placements",
-        "campus placement"
+        "campus placements"
     ],
 
     "CAT": [
@@ -277,6 +279,7 @@ EXAM_EXPERTISE = {
 # =========================================================
 
 CORE_COMPETENCIES = {
+
     "Training Delivery": [
         "training delivery",
         "delivering training",
@@ -369,13 +372,35 @@ DEGREE_PATTERN = re.compile(
 
 
 # =========================================================
+# DATE RANGE PATTERN FOR EXPERIENCE
+# =========================================================
+
+MONTH_PATTERN = (
+    r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|"
+    r"Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|"
+    r"Aug(?:ust)?|Sep(?:tember)?|Sept|Oct(?:ober)?|"
+    r"Nov(?:ember)?|Dec(?:ember)?)"
+)
+
+YEAR_PATTERN = r"(?:['’]?\d{2}|(?:19|20)\d{2})"
+
+DATE_RANGE_PATTERN = re.compile(
+    rf"(?:{MONTH_PATTERN}\s*)?"
+    rf"{YEAR_PATTERN}"
+    rf"\s*(?:-|–|—|to|at)\s*"
+    rf"(?:"
+    rf"(?:{MONTH_PATTERN}\s*)?"
+    rf"{YEAR_PATTERN}"
+    rf"|Present|Current|Now)",
+    re.IGNORECASE
+)
+
+
+# =========================================================
 # BASIC HELPERS
 # =========================================================
 
 def clean_lines(text):
-    """
-    Convert extracted PDF text into clean lines.
-    """
 
     cleaned = []
 
@@ -394,16 +419,18 @@ def clean_lines(text):
 
 
 def unique_list(items):
-    """
-    Remove duplicates while maintaining order.
-    """
 
     result = []
     seen = set()
 
     for item in items:
 
-        key = item.lower().strip()
+        item = str(item).strip()
+
+        if not item:
+            continue
+
+        key = item.lower()
 
         if key not in seen:
 
@@ -426,12 +453,7 @@ def is_known_heading(line):
 
     value = normalize_heading(line)
 
-    for heading in SECTION_HEADINGS:
-
-        if value == heading:
-            return True
-
-    return False
+    return value in SECTION_HEADINGS
 
 
 # =========================================================
@@ -439,18 +461,13 @@ def is_known_heading(line):
 # =========================================================
 
 def extract_section(lines, headings):
-    """
-    Extract content below a heading until
-    the next known section heading.
-    """
 
     if isinstance(headings, str):
-
         headings = [headings]
 
     headings = [
-        item.upper()
-        for item in headings
+        heading.upper()
+        for heading in headings
     ]
 
     start_index = None
@@ -484,30 +501,10 @@ def extract_section(lines, headings):
 # =========================================================
 
 def extract_name(lines):
-    """
-    Usually candidate name appears within
-    the first few lines of the resume.
-    """
-
-    skip_words = [
-        "resume",
-        "curriculum vitae",
-        "trainer",
-        "professional summary",
-        "executive summary",
-        "profile",
-        "phone",
-        "email",
-        "linkedin",
-        "chennai",
-        "hyderabad",
-        "india"
-    ]
 
     for line in lines[:15]:
 
         candidate = line.strip()
-
         lower = candidate.lower()
 
         if not candidate:
@@ -519,13 +516,15 @@ def extract_name(lines):
         if "http" in lower:
             continue
 
-        if any(
-            word == lower
-            for word in skip_words
-        ):
+        if "trainer" in lower:
             continue
 
-        if "trainer" in lower:
+        if lower in [
+            "resume",
+            "curriculum vitae",
+            "cv",
+            "profile"
+        ]:
             continue
 
         if DEGREE_PATTERN.search(candidate):
@@ -543,8 +542,6 @@ def extract_name(lines):
         if len(candidate) > 70:
             continue
 
-        # Candidate names normally contain
-        # mostly letters, dots and spaces
         if re.fullmatch(
             r"[A-Za-z.\s'-]+",
             candidate
@@ -581,6 +578,7 @@ def extract_email(text):
 def extract_phone(text):
 
     patterns = [
+
         r"(?:\+91[\s\-]?)?[6-9]\d{9}",
 
         r"(?:\+91[\s\-]?)?"
@@ -596,15 +594,11 @@ def extract_phone(text):
 
         if match:
 
-            phone = match.group(0)
-
-            phone = re.sub(
+            return re.sub(
                 r"\s+",
                 " ",
-                phone
-            )
-
-            return phone.strip()
+                match.group(0)
+            ).strip()
 
     return ""
 
@@ -636,15 +630,9 @@ def extract_linkedin(text):
 # =========================================================
 
 def extract_experience(text):
-    """
-    Extract values like:
-    4 years
-    5+ years
-    over 6 years
-    12 years of experience
-    """
 
     patterns = [
+
         r"(?:over\s+)?"
         r"\d+(?:\.\d+)?"
         r"\s*\+?\s*years",
@@ -665,6 +653,248 @@ def extract_experience(text):
             return match.group(0).strip()
 
     return ""
+
+
+# =========================================================
+# ORGANIZATION DETECTION
+# =========================================================
+
+def looks_like_organization(line):
+
+    lower = line.lower()
+
+    organization_words = [
+        "college",
+        "university",
+        "institute",
+        "academy",
+        "school",
+        "centre",
+        "center",
+        "pvt",
+        "private limited",
+        "solutions",
+        "technologies",
+        "technology",
+        "bank",
+        "finance",
+        "consulting",
+        "staffing",
+        "spiders",
+        "qspiders",
+        "freelance",
+        "company",
+        "corporation",
+        "services",
+        "limited",
+        "ltd"
+    ]
+
+    return any(
+        word in lower
+        for word in organization_words
+    )
+
+
+# =========================================================
+# EXPERIENCE TABLE EXTRACTION
+# =========================================================
+
+def extract_experience_details(lines):
+    """
+    Extract organization and employment period.
+
+    Output format:
+
+    [
+        {
+            "Name of Organization": "...",
+            "Years Worked": "2023 - 2024"
+        }
+    ]
+
+    If organization cannot be identified safely,
+    that row is ignored.
+    """
+
+    experience_text = extract_section(
+        lines,
+        [
+            "PROFESSIONAL EXPERIENCE",
+            "WORK EXPERIENCE",
+            "EXPERIENCE",
+            "EMPLOYMENT HISTORY"
+        ]
+    )
+
+    if not experience_text:
+        return []
+
+    exp_lines = clean_lines(
+        experience_text
+    )
+
+    results = []
+    seen = set()
+
+    for index, line in enumerate(
+        exp_lines
+    ):
+
+        date_match = DATE_RANGE_PATTERN.search(
+            line
+        )
+
+        if not date_match:
+            continue
+
+        date_range = (
+            date_match.group(0)
+            .strip()
+        )
+
+        organization = ""
+
+        # -------------------------------------------------
+        # Check same line after removing date range
+        # -------------------------------------------------
+
+        without_date = (
+            line[:date_match.start()]
+            + " "
+            + line[date_match.end():]
+        )
+
+        without_date = (
+            without_date
+            .strip(" |-–—")
+            .strip()
+        )
+
+        if looks_like_organization(
+            without_date
+        ):
+
+            # If role | organization format exists,
+            # prefer likely organization part.
+            parts = re.split(
+                r"\||\s+-\s+",
+                without_date
+            )
+
+            for part in reversed(parts):
+
+                part = part.strip()
+
+                if looks_like_organization(
+                    part
+                ):
+
+                    organization = part
+                    break
+
+            if not organization:
+                organization = without_date
+
+        # -------------------------------------------------
+        # Search previous lines
+        # -------------------------------------------------
+
+        if not organization:
+
+            start = max(
+                0,
+                index - 3
+            )
+
+            for previous_index in range(
+                index - 1,
+                start - 1,
+                -1
+            ):
+
+                previous_line = (
+                    exp_lines[
+                        previous_index
+                    ]
+                )
+
+                if looks_like_organization(
+                    previous_line
+                ):
+
+                    organization = (
+                        previous_line
+                        .strip("•●▪■*- ")
+                        .strip()
+                    )
+
+                    break
+
+        # -------------------------------------------------
+        # Search next lines
+        # -------------------------------------------------
+
+        if not organization:
+
+            end = min(
+                len(exp_lines),
+                index + 3
+            )
+
+            for next_index in range(
+                index + 1,
+                end
+            ):
+
+                next_line = (
+                    exp_lines[
+                        next_index
+                    ]
+                )
+
+                if looks_like_organization(
+                    next_line
+                ):
+
+                    organization = (
+                        next_line
+                        .strip("•●▪■*- ")
+                        .strip()
+                    )
+
+                    break
+
+        if not organization:
+            continue
+
+        organization = re.sub(
+            r"\s+",
+            " ",
+            organization
+        ).strip()
+
+        key = (
+            organization.lower(),
+            date_range.lower()
+        )
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+
+        results.append(
+            {
+                "Name of Organization":
+                    organization,
+
+                "Years Worked":
+                    date_range
+            }
+        )
+
+    return results
 
 
 # =========================================================
@@ -692,14 +922,17 @@ def extract_qualification(lines):
 
         for line in education_lines:
 
-            if DEGREE_PATTERN.search(line):
+            if DEGREE_PATTERN.search(
+                line
+            ):
 
                 return line.strip()
 
-    # Fallback: search entire resume
     for line in lines:
 
-        if DEGREE_PATTERN.search(line):
+        if DEGREE_PATTERN.search(
+            line
+        ):
 
             if len(line) <= 140:
                 return line.strip()
@@ -708,27 +941,29 @@ def extract_qualification(lines):
 
 
 # =========================================================
-# KEYWORD DETECTION
+# KEYWORDS
 # =========================================================
 
-def contains_keyword(text, keyword):
+def contains_keyword(
+    text,
+    keyword
+):
 
     text_lower = text.lower()
-    keyword_lower = keyword.lower()
 
-    # Short terms like CAT, GRE, SQL, Git
-    # should use word boundaries.
+    keyword_lower = (
+        keyword.lower()
+    )
+
     if len(keyword) <= 4:
-
-        pattern = (
-            r"\b"
-            + re.escape(keyword_lower)
-            + r"\b"
-        )
 
         return bool(
             re.search(
-                pattern,
+                r"\b"
+                + re.escape(
+                    keyword_lower
+                )
+                + r"\b",
                 text_lower
             )
         )
@@ -736,7 +971,10 @@ def contains_keyword(text, keyword):
     return keyword_lower in text_lower
 
 
-def find_keywords(text, mapping):
+def find_keywords(
+    text,
+    mapping
+):
 
     found = []
 
@@ -757,7 +995,9 @@ def find_keywords(text, mapping):
 
                 break
 
-    return unique_list(found)
+    return unique_list(
+        found
+    )
 
 
 # =========================================================
@@ -776,18 +1016,10 @@ def extract_languages(lines):
 
     if section:
 
-        section = section.replace(
+        return section.replace(
             "|",
             ", "
-        )
-
-        section = re.sub(
-            r"\s*,\s*",
-            ", ",
-            section
-        )
-
-        return section.strip()
+        ).strip()
 
     full_text = " ".join(
         lines
@@ -815,9 +1047,13 @@ def extract_languages(lines):
             full_text
         ):
 
-            found.append(language)
+            found.append(
+                language
+            )
 
-    return ", ".join(found)
+    return ", ".join(
+        found
+    )
 
 
 # =========================================================
@@ -839,7 +1075,9 @@ def extract_certifications(lines):
 
     result = []
 
-    for line in clean_lines(section):
+    for line in clean_lines(
+        section
+    ):
 
         cleaned = line.lstrip(
             "•●▪■*- "
@@ -851,7 +1089,141 @@ def extract_certifications(lines):
                 "● " + cleaned
             )
 
-    return "\n".join(result)
+    return "\n".join(
+        result
+    )
+
+
+# =========================================================
+# PROFESSIONAL SUMMARY AS BULLET POINTS
+# =========================================================
+
+def extract_summary(lines):
+    """
+    Extract Professional Summary and convert
+    every point into a bullet.
+
+    The generated Word profile will therefore
+    contain bullet points instead of one large
+    paragraph.
+    """
+
+    section = extract_section(
+        lines,
+        [
+            "PROFESSIONAL SUMMARY",
+            "EXECUTIVE SUMMARY",
+            "PROFILE SUMMARY",
+            "SUMMARY",
+            "ABOUT ME",
+            "CAREER OBJECTIVE",
+            "OBJECTIVE"
+        ]
+    )
+
+    if not section:
+        return ""
+
+    source_lines = clean_lines(
+        section
+    )
+
+    # -----------------------------------------------------
+    # If resume already has bullet points,
+    # preserve those points.
+    # -----------------------------------------------------
+
+    existing_bullets = []
+
+    for line in source_lines:
+
+        if line.startswith(
+            (
+                "•",
+                "●",
+                "▪",
+                "■",
+                "-",
+                "*"
+            )
+        ):
+
+            cleaned = line.lstrip(
+                "•●▪■*- "
+            ).strip()
+
+            if cleaned:
+
+                existing_bullets.append(
+                    cleaned
+                )
+
+    if existing_bullets:
+
+        return "\n".join(
+            "● " + point
+            for point in existing_bullets
+        )
+
+    # -----------------------------------------------------
+    # Otherwise join wrapped lines and split into
+    # meaningful sentences.
+    # -----------------------------------------------------
+
+    full_summary = " ".join(
+        source_lines
+    )
+
+    sentences = re.split(
+        r"(?<=[.!?])\s+"
+        r"(?=[A-Z])",
+        full_summary
+    )
+
+    points = []
+
+    for sentence in sentences:
+
+        sentence = sentence.strip()
+
+        if not sentence:
+            continue
+
+        if len(sentence) < 10:
+            continue
+
+        points.append(
+            sentence
+        )
+
+    # -----------------------------------------------------
+    # If sentence splitting fails, use clean lines.
+    # -----------------------------------------------------
+
+    if len(points) <= 1:
+
+        points = []
+
+        for line in source_lines:
+
+            cleaned = line.lstrip(
+                "•●▪■*- "
+            ).strip()
+
+            if cleaned:
+
+                points.append(
+                    cleaned
+                )
+
+    points = unique_list(
+        points
+    )
+
+    return "\n".join(
+        "● " + point
+        for point in points
+    )
 
 
 # =========================================================
@@ -891,8 +1263,6 @@ def extract_highlights(lines):
             result[:8]
         )
 
-    # Fallback:
-    # pick useful training statements
     experience = extract_section(
         lines,
         [
@@ -923,7 +1293,9 @@ def extract_highlights(lines):
 
     highlights = []
 
-    for line in clean_lines(experience):
+    for line in clean_lines(
+        experience
+    ):
 
         lower = line.lower()
 
@@ -950,8 +1322,8 @@ def extract_highlights(lines):
     )
 
     return "\n".join(
-        "● " + item
-        for item in highlights
+        "● " + point
+        for point in highlights
     )
 
 
@@ -978,12 +1350,13 @@ def extract_leetcode(text):
 
 
 # =========================================================
-# NUMBER OF PROBLEMS SOLVED
+# PROBLEMS SOLVED
 # =========================================================
 
 def extract_problem_count(text):
 
     patterns = [
+
         r"(\d+)\s+problems?\s+solved",
 
         r"problems?\s+solved"
@@ -999,6 +1372,7 @@ def extract_problem_count(text):
         )
 
         if match:
+
             return match.group(1)
 
     return ""
@@ -1034,27 +1408,9 @@ def extract_other_profiles(text):
         )
 
     return "\n".join(
-        unique_list(result)
-    )
-
-
-# =========================================================
-# PROFESSIONAL SUMMARY
-# =========================================================
-
-def extract_summary(lines):
-
-    return extract_section(
-        lines,
-        [
-            "PROFESSIONAL SUMMARY",
-            "EXECUTIVE SUMMARY",
-            "PROFILE SUMMARY",
-            "SUMMARY",
-            "ABOUT ME",
-            "CAREER OBJECTIVE",
-            "OBJECTIVE"
-        ]
+        unique_list(
+            result
+        )
     )
 
 
@@ -1066,17 +1422,6 @@ def extract_training_projects(
     lines,
     profile_type
 ):
-    """
-    Safely attempts to find colleges /
-    universities mentioned in training
-    experience.
-
-    Location is intentionally left blank
-    unless it is clearly available.
-
-    User can edit this later before profile
-    generation.
-    """
 
     experience_section = extract_section(
         lines,
@@ -1112,6 +1457,7 @@ def extract_training_projects(
             word in lower
             for word in institution_words
         ):
+
             continue
 
         cleaned = line.lstrip(
@@ -1155,15 +1501,10 @@ def parse_resume(
     text,
     profile_type
 ):
-    """
-    Main function called by Streamlit.
 
-    profile_type must be:
-        Technical Trainer
-        Aptitude Trainer
-    """
-
-    lines = clean_lines(text)
+    lines = clean_lines(
+        text
+    )
 
     summary = extract_summary(
         lines
@@ -1186,6 +1527,12 @@ def parse_resume(
         CORE_COMPETENCIES
     )
 
+    experience_details = (
+        extract_experience_details(
+            lines
+        )
+    )
+
 
     # =====================================================
     # APTITUDE TRAINER
@@ -1193,9 +1540,11 @@ def parse_resume(
 
     if profile_type == "Aptitude Trainer":
 
-        aptitude_subjects = find_keywords(
-            text,
-            APTITUDE_SUBJECTS
+        aptitude_subjects = (
+            find_keywords(
+                text,
+                APTITUDE_SUBJECTS
+            )
         )
 
         additional_technical = (
@@ -1254,17 +1603,36 @@ def parse_resume(
 
 
     # =====================================================
-    # CREATE FINAL DATA DICTIONARY
+    # CORE SKILLS
+    #
+    # IMPORTANT:
+    # Add square bullet BEFORE THE FIRST SKILL ALSO.
+    # =====================================================
+
+    if all_skills:
+
+        formatted_skills = (
+            "■ "
+            + " ■ ".join(
+                all_skills
+            )
+        )
+
+    else:
+
+        formatted_skills = ""
+
+
+    # =====================================================
+    # FINAL DATA
     # =====================================================
 
     data = {
 
-        # ---------------------------------------------
-        # Basic Information
-        # ---------------------------------------------
-
         "Name":
-            extract_name(lines),
+            extract_name(
+                lines
+            ),
 
         "Emp ID":
             "",
@@ -1307,17 +1675,21 @@ def parse_resume(
             "",
 
 
-        # ---------------------------------------------
-        # Main Profile
-        # ---------------------------------------------
+        # =================================================
+        # CORE SKILLS
+        # =================================================
 
         "Skills":
-            " ■ ".join(
-                all_skills
-            ),
+            formatted_skills,
+
+
+        # =================================================
+        # SUMMARY - NOW BULLET POINTS
+        # =================================================
 
         "Summary":
             summary,
+
 
         "Certifications":
             certifications,
@@ -1326,9 +1698,17 @@ def parse_resume(
             highlights,
 
 
-        # ---------------------------------------------
-        # Aptitude Fields
-        # ---------------------------------------------
+        # =================================================
+        # EXPERIENCE TABLE DATA
+        # =================================================
+
+        "Experience Details":
+            experience_details,
+
+
+        # =================================================
+        # APTITUDE FIELDS
+        # =================================================
 
         "Subjects Handled":
             "\n".join(
@@ -1348,9 +1728,9 @@ def parse_resume(
             ),
 
 
-        # ---------------------------------------------
-        # Common Training Fields
-        # ---------------------------------------------
+        # =================================================
+        # TRAINING
+        # =================================================
 
         "Training Expertise":
             "\n".join(
@@ -1365,9 +1745,9 @@ def parse_resume(
             ),
 
 
-        # ---------------------------------------------
-        # Technical Trainer Fields
-        # ---------------------------------------------
+        # =================================================
+        # TECHNICAL FIELDS
+        # =================================================
 
         "LeetCode Profile Link":
             extract_leetcode(
@@ -1385,9 +1765,9 @@ def parse_resume(
             ),
 
 
-        # ---------------------------------------------
-        # Projects / Colleges
-        # ---------------------------------------------
+        # =================================================
+        # TRAINING PROJECTS
+        # =================================================
 
         "Training Projects":
             extract_training_projects(
@@ -1396,9 +1776,9 @@ def parse_resume(
             ),
 
 
-        # ---------------------------------------------
-        # Keep raw resume text for checking
-        # ---------------------------------------------
+        # =================================================
+        # RAW PDF TEXT
+        # =================================================
 
         "Raw Text":
             text

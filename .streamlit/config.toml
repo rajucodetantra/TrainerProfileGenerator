@@ -1,0 +1,42 @@
+[theme]
+base = "light"
+
+# Main application
+primaryColor = "#F28C18"
+backgroundColor = "#F5F7FA"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#243447"
+
+# Borders and widgets
+borderColor = "#D8E0E8"
+dataframeBorderColor = "#D8E0E8"
+dataframeHeaderBackgroundColor = "#EEF3F7"
+
+showWidgetBorder = true
+showSidebarBorder = true
+
+baseRadius = "0.5rem"
+buttonRadius = "0.5rem"
+
+
+[theme.sidebar]
+
+# Eye-friendly blue sidebar
+backgroundColor = "#284B63"
+
+# Widget background inside sidebar
+secondaryBackgroundColor = "#355F7A"
+
+# All sidebar text
+textColor = "#FFFFFF"
+
+# Selected/accent color
+primaryColor = "#F28C18"
+
+# Borders
+borderColor = "#426B84"
+
+showWidgetBorder = true
+
+baseRadius = "0.5rem"
+buttonRadius = "0.5rem"

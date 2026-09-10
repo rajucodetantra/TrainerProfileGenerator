@@ -1,17 +1,19 @@
 import streamlit as st
+import os
+import time
 
+
+from services.pdf_merge_service import PDFMergeService
+from services.download_service import DownloadService
+from services.file_utils import FileUtils
+from services.logger import Logger
 from login import require_login
-
+from ui_styles import apply_global_styles
 
 # =========================================================
 # PAGE CONFIG
 # =========================================================
 
-st.set_page_config(
-    page_title="Page Name",
-    page_icon="📄",
-    layout="wide"
-)
 
 
 # =========================================================
@@ -19,14 +21,9 @@ st.set_page_config(
 # =========================================================
 
 require_login()
-import os
-import time
-import streamlit as st
 
-from services.pdf_merge_service import PDFMergeService
-from services.download_service import DownloadService
-from services.file_utils import FileUtils
-from services.logger import Logger
+
+
 
 st.set_page_config(
     page_title="Combine PDF",

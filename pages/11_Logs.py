@@ -1,17 +1,15 @@
 import streamlit as st
+import os
 
+import pandas as pd
+from datetime import datetime
 from login import require_login
-
+from ui_styles import apply_global_styles
 
 # =========================================================
 # PAGE CONFIG
 # =========================================================
 
-st.set_page_config(
-    page_title="Page Name",
-    page_icon="📄",
-    layout="wide"
-)
 
 
 # =========================================================
@@ -19,10 +17,9 @@ st.set_page_config(
 # =========================================================
 
 require_login()
-import os
-import streamlit as st
-import pandas as pd
-from datetime import datetime
+
+
+
 
 # ----------------------------------------------------
 # Page Configuration

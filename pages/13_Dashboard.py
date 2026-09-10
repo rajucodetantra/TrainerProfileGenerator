@@ -1,17 +1,18 @@
 import streamlit as st
 
-from login import require_login
+import pandas as pd
+from pathlib import Path
 
+from modules.excel_reader import read_excel
+
+from login import require_login
+from ui_styles import apply_global_styles
 
 # =========================================================
 # PAGE CONFIG
 # =========================================================
 
-st.set_page_config(
-    page_title="Page Name",
-    page_icon="📄",
-    layout="wide"
-)
+
 
 
 # =========================================================
@@ -19,11 +20,8 @@ st.set_page_config(
 # =========================================================
 
 require_login()
-import streamlit as st
-import pandas as pd
-from pathlib import Path
 
-from modules.excel_reader import read_excel
+
 
 # -------------------------------------------------
 # Page Configuration

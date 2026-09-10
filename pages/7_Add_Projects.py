@@ -1,32 +1,12 @@
 import streamlit as st
-
-from login import require_login
-
-
-# =========================================================
-# PAGE CONFIG
-# =========================================================
-
-st.set_page_config(
-    page_title="Page Name",
-    page_icon="📄",
-    layout="wide"
-)
-
-
-# =========================================================
-# LOGIN
-# =========================================================
-
-require_login()
 import io
 import re
 import random
 import zipfile
 from pathlib import Path
-
+from ui_styles import apply_global_styles
 import pandas as pd
-import streamlit as st
+
 
 from docx import Document
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
@@ -34,6 +14,24 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
+from login import require_login
+
+
+# =========================================================
+# PAGE CONFIG
+# =========================================================
+
+
+
+
+# =========================================================
+# LOGIN
+# =========================================================
+
+require_login()
+
+
+
 
 
 # ============================================================

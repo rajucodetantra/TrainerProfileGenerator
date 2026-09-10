@@ -1,17 +1,18 @@
 import streamlit as st
+import os
+import pandas as pd
 
+import matplotlib.pyplot as plt
+
+from services.profile_service import ProfileService
 from login import require_login
 
-
+from ui_styles import apply_global_styles
 # =========================================================
 # PAGE CONFIG
 # =========================================================
 
-st.set_page_config(
-    page_title="Page Name",
-    page_icon="📄",
-    layout="wide"
-)
+
 
 
 # =========================================================
@@ -19,12 +20,9 @@ st.set_page_config(
 # =========================================================
 
 require_login()
-import os
-import pandas as pd
-import streamlit as st
-import matplotlib.pyplot as plt
 
-from services.profile_service import ProfileService
+
+
 
 # -------------------------------------------------------
 # PAGE CONFIGURATION

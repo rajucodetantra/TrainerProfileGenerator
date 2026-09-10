@@ -1,17 +1,14 @@
 import streamlit as st
-from pathlib import Path
 
 from login import require_login
 
 
 # =========================================================
-# PAGE CONFIGURATION
-# This must be the first Streamlit command
+# APPLICATION CONFIGURATION
 # =========================================================
 
 st.set_page_config(
     page_title="Trainer Profile Generator",
-    page_icon="👨‍🏫",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -19,425 +16,191 @@ st.set_page_config(
 
 # =========================================================
 # LOGIN PROTECTION
+#
+# Home checks authentication.
+# Logout is NOT displayed here.
+# Selected child page displays Logout.
 # =========================================================
 
-require_login()
-
-
-# =========================================================
-# PROJECT PATH
-# =========================================================
-
-BASE_DIR = Path(__file__).resolve().parent
-
-
-# =========================================================
-# SAFE PAGE LINK FUNCTION
-# =========================================================
-
-def page_button(page_path, label):
-    """
-    Creates a page link only if the page exists.
-
-    If the page is missing or renamed,
-    Home.py will continue working instead of
-    producing StreamlitPageNotFoundError.
-    """
-
-    full_path = BASE_DIR / page_path
-
-    if full_path.exists():
-
-        st.page_link(
-            page_path,
-            label=label,
-            use_container_width=True
-        )
-
-    else:
-
-        st.warning(
-            f"⚠️ Page not found: {page_path}"
-        )
-
-
-# =========================================================
-# CUSTOM CSS
-# =========================================================
-
-st.markdown(
-    """
-    <style>
-
-    /* Main page title */
-    .main-title {
-        font-size: 40px;
-        font-weight: 700;
-        color: #1F4E79;
-        margin-bottom: 5px;
-    }
-
-    /* Subtitle */
-    .sub-title {
-        font-size: 19px;
-        color: #555555;
-        margin-bottom: 15px;
-    }
-
-    /* Section text */
-    .section-description {
-        font-size: 16px;
-        color: #555555;
-        margin-bottom: 15px;
-    }
-
-    /* Footer */
-    .footer {
-        text-align: center;
-        color: #777777;
-        font-size: 13px;
-        padding-top: 10px;
-        padding-bottom: 10px;
-    }
-
-    /* Page-link buttons */
-    div[data-testid="stPageLink"] a {
-        border: 1px solid #dddddd;
-        border-radius: 8px;
-        padding: 12px;
-        text-decoration: none;
-    }
-
-    div[data-testid="stPageLink"] a:hover {
-        border: 1px solid #1F4E79;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
+require_login(
+    show_logout_button=False
 )
 
 
 # =========================================================
-# HEADER
+# APPLICATION NAVIGATION
 # =========================================================
 
-st.markdown(
-    """
-    <div class="main-title">
-        👨‍🏫 Trainer Profile Generator
-    </div>
+pages = {
 
-    <div class="sub-title">
-        Training Operations Management System
-    </div>
-    """,
-    unsafe_allow_html=True
+    # =====================================================
+    # GENERAL
+    # =====================================================
+
+    "GENERAL": [
+
+        st.Page(
+            "pages/13_Dashboard.py",
+            title="Dashboard",
+            url_path="dashboard"
+        ),
+
+    ],
+
+
+    # =====================================================
+    # TRAINER PROFILES
+    # =====================================================
+
+    "TRAINER PROFILES": [
+
+        st.Page(
+            "pages/1_Search_Trainer.py",
+            title="Search Trainer",
+            url_path="search-trainer"
+        ),
+
+        st.Page(
+            "pages/2_Generate_Profiles.py",
+            title="Generate Profiles",
+            url_path="generate-profiles"
+        ),
+
+        st.Page(
+            "pages/14_Resume_Profile_Generator.py",
+            title="Resume Profile Generator",
+            url_path="resume-profile-generator"
+        ),
+
+        # -------------------------------------------------
+        # PAGE 15 - APTITUDE TRAINER PROFILES
+        # -------------------------------------------------
+
+        st.Page(
+            "pages/15_Aptitude_Trainers_Profiles.py",
+            title="Aptitude Trainer Profiles",
+            url_path="aptitude-trainer-profiles"
+        ),
+
+    ],
+
+
+    # =====================================================
+    # FEEDBACK & ANALYTICS
+    # =====================================================
+
+    "FEEDBACK & ANALYTICS": [
+
+        # -------------------------------------------------
+        # PAGE 16 - FEEDBACK ANALYTICS
+        # -------------------------------------------------
+
+        st.Page(
+            "pages/16_Feedback_Analytics.py",
+            title="Feedback Analytics",
+            url_path="feedback-analytics"
+        ),
+
+    ],
+
+
+    # =====================================================
+    # TRAINER DATA
+    # =====================================================
+
+    "TRAINER DATA": [
+
+        st.Page(
+            "pages/7_Add_Projects.py",
+            title="Add Projects",
+            url_path="add-projects"
+        ),
+
+        st.Page(
+            "pages/8_Change_Skills.py",
+            title="Change Skills",
+            url_path="change-skills"
+        ),
+
+        st.Page(
+            "pages/9_Change_Skills_Add_Projects.py",
+            title="Change Skills + Projects",
+            url_path="change-skills-projects"
+        ),
+
+    ],
+
+
+    # =====================================================
+    # DOCUMENT TOOLS
+    # =====================================================
+
+    "DOCUMENT TOOLS": [
+
+        st.Page(
+            "pages/3_Word_to_PDF.py",
+            title="Word to PDF",
+            url_path="word-to-pdf"
+        ),
+
+        st.Page(
+            "pages/4_PDF_to_Word.py",
+            title="PDF to Word",
+            url_path="pdf-to-word"
+        ),
+
+        st.Page(
+            "pages/5_Combine_PDF.py",
+            title="Combine PDF",
+            url_path="combine-pdf"
+        ),
+
+        st.Page(
+            "pages/6_Split_PDF.py",
+            title="Split PDF",
+            url_path="split-pdf"
+        ),
+
+    ],
+
+
+    # =====================================================
+    # ADMINISTRATION
+    # =====================================================
+
+    "ADMINISTRATION": [
+
+        st.Page(
+            "pages/12_Reports.py",
+            title="Reports",
+            url_path="reports"
+        ),
+
+        st.Page(
+            "pages/11_Logs.py",
+            title="Logs",
+            url_path="logs"
+        ),
+
+        st.Page(
+            "pages/10_Settings.py",
+            title="Settings",
+            url_path="settings"
+        ),
+
+    ],
+
+}
+
+
+# =========================================================
+# START NAVIGATION
+# =========================================================
+
+navigation = st.navigation(
+    pages,
+    position="sidebar",
+    expanded=True
 )
 
-st.divider()
-
-
-# =========================================================
-# WELCOME SECTION
-# =========================================================
-
-left_col, right_col = st.columns([2.2, 1])
-
-
-with left_col:
-
-    st.subheader("Welcome")
-
-    st.write(
-        """
-        Trainer Profile Generator helps the Training Operations
-        team manage trainer information, skills, projects,
-        profiles and supporting documents from one application.
-
-        Use the modules below to search trainers, generate profiles,
-        manage trainer data, work with PDF documents and view reports.
-        """
-    )
-
-
-with right_col:
-
-    st.info(
-        """
-        ### Application Information
-
-        **Application:** Trainer Profile Generator
-
-        **Version:** 1.0.0
-
-        **Platform:** Python + Streamlit
-
-        **Output:** DOCX / PDF
-        """
-    )
-
-
-# =========================================================
-# TRAINER PROFILE MANAGEMENT
-# =========================================================
-
-st.divider()
-
-st.subheader("👨‍🏫 Trainer Profile Management")
-
-st.markdown(
-    """
-    <div class="section-description">
-        Search trainers and generate individual or bulk trainer profiles.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-col1, col2 = st.columns(2)
-
-
-with col1:
-
-    page_button(
-        "pages/1_Search_trainer.py",
-        "🔍 Search Trainer"
-    )
-
-
-with col2:
-
-    page_button(
-        "pages/2_Generate_Profiles.py",
-        "📄 Generate Profiles"
-    )
-
-
-# =========================================================
-# PDF TOOLS
-# =========================================================
-
-st.divider()
-
-st.subheader("📑 PDF & Document Tools")
-
-st.markdown(
-    """
-    <div class="section-description">
-        Convert, combine and split Word and PDF documents.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-col1, col2 = st.columns(2)
-
-
-with col1:
-
-    page_button(
-        "pages/3_Word_to_PDF.py",
-        "📄 Word to PDF"
-    )
-
-
-with col2:
-
-    page_button(
-        "pages/4_PDF_to_Word.py",
-        "📝 PDF to Word"
-    )
-
-
-col1, col2 = st.columns(2)
-
-
-with col1:
-
-    page_button(
-        "pages/5_Combine_PDF.py",
-        "📚 Combine PDF"
-    )
-
-
-with col2:
-
-    page_button(
-        "pages/6_Split_PDF.py",
-        "✂️ Split PDF"
-    )
-
-
-# =========================================================
-# TRAINER DATA MANAGEMENT
-# =========================================================
-
-st.divider()
-
-st.subheader("🛠️ Trainer Data Management")
-
-st.markdown(
-    """
-    <div class="section-description">
-        Maintain trainer projects, technical skills and profile information.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-col1, col2, col3 = st.columns(3)
-
-
-with col1:
-
-    page_button(
-        "pages/7_Add_Projects.py",
-        "➕ Add Projects"
-    )
-
-
-with col2:
-
-    page_button(
-        "pages/8_Change_Skills.py",
-        "🛠️ Change Skills"
-    )
-
-
-with col3:
-
-    page_button(
-        "pages/9_Change_Skills_Add_Projects.py",
-        "🔄 Skills + Projects"
-    )
-
-
-# =========================================================
-# ADMINISTRATION
-# =========================================================
-
-st.divider()
-
-st.subheader("⚙️ Administration")
-
-st.markdown(
-    """
-    <div class="section-description">
-        Configure the application and review application activity.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-col1, col2 = st.columns(2)
-
-
-with col1:
-
-    page_button(
-        "pages/10_Settings.py",
-        "⚙️ Settings"
-    )
-
-
-with col2:
-
-    page_button(
-        "pages/11_Logs.py",
-        "📋 Logs"
-    )
-
-
-# =========================================================
-# REPORTS AND DASHBOARD
-# =========================================================
-
-st.divider()
-
-st.subheader("📊 Reports & Analytics")
-
-st.markdown(
-    """
-    <div class="section-description">
-        View reports, application statistics and trainer analytics.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-col1, col2 = st.columns(2)
-
-
-with col1:
-
-    page_button(
-        "pages/12_Reports.py",
-        "📈 Reports"
-    )
-
-
-with col2:
-
-    page_button(
-        "pages/13_Dashboard.py",
-        "📊 Dashboard"
-    )
-
-
-# =========================================================
-# APPLICATION FEATURES
-# =========================================================
-
-st.divider()
-
-st.subheader("✨ Application Features")
-
-
-col1, col2, col3 = st.columns(3)
-
-
-with col1:
-
-    st.success("✔ Search Trainer")
-    st.success("✔ Generate Trainer Profiles")
-    st.success("✔ Bulk Profile Generation")
-
-
-with col2:
-
-    st.success("✔ Change Trainer Skills")
-    st.success("✔ Add Training Projects")
-    st.success("✔ Word / PDF Conversion")
-
-
-with col3:
-
-    st.success("✔ Reports & Analytics")
-    st.success("✔ Dashboard")
-    st.success("✔ Settings & Logs")
-
-
-# =========================================================
-# FOOTER
-# =========================================================
-
-st.divider()
-
-st.markdown(
-    """
-    <div class="footer">
-        © CodeTantra Tech Solutions Pvt. Ltd.
-        &nbsp; | &nbsp;
-        Training Operations
-        &nbsp; | &nbsp;
-        Trainer Profile Generator v1.0.0
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+navigation.run()

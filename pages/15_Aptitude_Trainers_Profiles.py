@@ -5,6 +5,7 @@ import shutil
 import subprocess
 from datetime import date, datetime
 from io import BytesIO
+from copy import deepcopy
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -37,7 +38,9 @@ except Exception:
 from openpyxl import load_workbook
 from PIL import Image as PILImage
 from docx import Document
+from docx.oxml import OxmlElement
 from docx.shared import Inches
+from docx.text.paragraph import Paragraph
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 # =========================================================
@@ -45,6 +48,27 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 # =========================================================
 
 EXCEL_PATH = ROOT_DIR / "data" / "Aptitude_Trainer.xlsx"
+# If the Projects-containing Aptitude/Reasoning workbook has a different filename,
+# use it automatically when Aptitude_Trainer.xlsx is not present.
+if not EXCEL_PATH.exists():
+    for candidate_name in [
+        "Aptitude And Reasoning - Details.xlsx",
+        "Aptitude And Reasoning - Details(1).xlsx",
+    ]:
+        candidate = ROOT_DIR / "data" / candidate_name
+        if candidate.exists():
+            EXCEL_PATH = candidate
+            break
+# Projects are stored in the Aptitude/Reasoning details workbook when present.
+PROJECTS_EXCEL_CANDIDATES = [
+    EXCEL_PATH,
+    ROOT_DIR / "data" / "Aptitude And Reasoning - Details.xlsx",
+]
+if not EXCEL_PATH.exists():
+    for _candidate in PROJECTS_EXCEL_CANDIDATES:
+        if _candidate.exists():
+            EXCEL_PATH = _candidate
+            break
 TEMPLATE_PATH = ROOT_DIR / "templates" / "Aptitude_Trainer_Profile_Template.docx"
 OUTPUT_DIR = ROOT_DIR / "output" / "Aptitude_Trainer_Profiles"
 WORD_OUTPUT_DIR = OUTPUT_DIR / "Word"
@@ -68,6 +92,7 @@ EXPECTED_FIELDS = [
     "Certifications",
     "Skills",
     "Photo",
+    "Projects",
 ]
 
 COLUMN_ALIASES = {
@@ -103,6 +128,10 @@ COLUMN_ALIASES = {
     "photo": "Photo",
     "image": "Photo",
     "photos": "Photo",
+    "project": "Projects",
+    "projects": "Projects",
+    "trainingprojects": "Projects",
+    "trainingproject": "Projects",
 }
 
 
@@ -289,6 +318,30 @@ def build_core_competencies(skills):
     return bullet_lines(results)
 
 
+def build_projects(value):
+    """
+    Return the Projects cell as clean, line-separated text.
+    IMPORTANT: this returns a STRING, not a list. The Excel numbering is
+    preserved exactly (1., 2., 3), etc.) so it can be displayed under the
+    existing Training Projects heading.
+    """
+    text = clean_text(value)
+    if not text:
+        return ""
+
+    text = re.sub(r"(?i)<br\\s*/?>", "\\n", text)
+    text = text.replace("\\r", "")
+
+    lines = []
+    for line in text.split("\\n"):
+        line = re.sub(r"\\s+", " ", line).strip()
+        if line:
+            lines.append(line)
+
+    return "\\n".join(lines)
+
+
+
 def build_exam_expertise(skills):
     keywords = ["placement", "crt", "cat", "gre", "ssc", "bank", "competitive exam", "campus recruitment", "government exam"]
     return bullet_lines([skill for skill in skills if any(k in skill.lower() for k in keywords)])
@@ -321,6 +374,7 @@ def prepare_row(source_row):
     row["Qualification"] = clean_text(row.get("Qualification"))
     row["Certifications"] = clean_text(row.get("Certifications"))
     row["Skills"] = clean_text(row.get("Skills"))
+    row["Projects"] = clean_text(row.get("Projects"))
     existing_exp = clean_text(row.get("Experience"))
     row["Experience"] = existing_exp or calculate_experience(row.get("Date of Joining"), row.get("Today Date"))
     return row
@@ -515,16 +569,113 @@ def build_context(row):
         "{{Core Competencies}}": build_core_competencies(skills),
         "{{Languages}}": "",
         "{{Rating}}": "",
-        "{{Training Projects}}": "Project allocation not yet done.",
+        "{{Training Projects}}": build_projects(row.get("Projects")),
+        "{{Projects}}": build_projects(row.get("Projects")),
         "Profile - Technical Trainer": "Profile - Aptitude Trainer",
     }
+
+
+def insert_projects_at_existing_heading(document, project_text):
+    """
+    Insert each Excel Projects line as ONE Word paragraph immediately below
+    the existing 'Training Projects:' heading.
+
+    The Excel cell contains text such as:
+        1. SRM valliammai Channai
+        2. Narayana Engineering College Gudur
+
+    We deliberately keep each complete line together. This prevents the
+    previous bug where a string was iterated character-by-character and
+    produced:
+        ● 1
+        ● .
+        ● S
+        ● R
+        ...
+    """
+    project_text = clean_text(project_text)
+    if not project_text:
+        return False
+
+    # Normalize Excel/HTML line breaks.
+    project_text = re.sub(r"(?i)<br\\s*/?>", "\\n", project_text)
+    project_text = project_text.replace("\\r", "")
+
+    # Split ONLY on line breaks. Do not split a project on spaces, commas,
+    # periods, or numbers because those are part of the project name.
+    projects = []
+    for line in project_text.split("\\n"):
+        line = re.sub(r"\\s+", " ", line).strip()
+        if line:
+            projects.append(line)
+
+    if not projects:
+        return False
+
+    # The supplied template has the existing heading as a top-level paragraph.
+    heading = next(
+        (
+            p for p in document.paragraphs
+            if p.text.strip().lower() in {"training projects", "training projects:"}
+        ),
+        None,
+    )
+
+    if heading is None:
+        return False
+
+    # Remove project paragraphs previously inserted immediately after the
+    # heading, making repeated generation safe.
+    current = heading._p.getnext()
+    while current is not None and current.tag.endswith("}p"):
+        paragraph = Paragraph(current, heading._parent)
+        value = paragraph.text.strip()
+        if value.startswith("● "):
+            next_xml = current.getnext()
+            current.getparent().remove(current)
+            current = next_xml
+        else:
+            break
+
+    # Insert one paragraph per Excel project.
+    current_xml = heading._p
+    for project in projects:
+        new_p = OxmlElement("w:p")
+
+        # Copy paragraph properties only; never assign heading.style.
+        if heading._p.pPr is not None:
+            new_p.append(deepcopy(heading._p.pPr))
+
+        current_xml.addnext(new_p)
+        new_para = Paragraph(new_p, heading._parent)
+        new_para.add_run("● " + project)
+        current_xml = new_p
+
+    return True
+
 
 
 def generate_word_profile(row, photo_path):
     document = Document(str(TEMPLATE_PATH))
     insert_photo(document, photo_path)
-    replace_all_placeholders(document, build_context(row))
+
+    context = build_context(row)
+
+    # Fill all normal template placeholders.
+    replace_all_placeholders(document, context)
+
+    # The supplied template's page 3 contains ONLY:
+    #     Training Projects:
+    # There is no {{Training Projects}} placeholder.
+    # Therefore insert the actual Excel Projects cell directly underneath
+    # that existing heading.
+    project_text = build_projects(row.get("Projects"))
+    if project_text:
+        insert_projects_at_existing_heading(document, project_text)
+
+    # Remove any unresolved {{...}} placeholders.
     remove_remaining_placeholders(document)
+
     employee_id = safe_filename(row.get("Employee ID"))
     name = safe_filename(row.get("Name"))
     base_name = f"{employee_id}_{name}" if row.get("Employee ID") else name

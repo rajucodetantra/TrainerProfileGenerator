@@ -1,27 +1,8 @@
 import streamlit as st
-
 import pandas as pd
 from pathlib import Path
 
 from modules.excel_reader import read_excel
-
-from login import require_login
-from ui_styles import apply_global_styles
-
-# =========================================================
-# PAGE CONFIG
-# =========================================================
-
-
-
-
-# =========================================================
-# LOGIN
-# =========================================================
-
-require_login()
-
-
 
 # -------------------------------------------------
 # Page Configuration

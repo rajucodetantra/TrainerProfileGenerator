@@ -1,25 +1,8 @@
-import streamlit as st
-
-from login import require_login
 import os
 import io
 import zipfile
-
+import streamlit as st
 from services.profile_service import ProfileService
-
-from ui_styles import apply_global_styles
-# =========================================================
-# PAGE CONFIG
-# =========================================================
-
-
-
-# =========================================================
-# LOGIN
-# =========================================================
-
-require_login()
-
 
 # -------------------------------------------------------
 # PAGE CONFIGURATION

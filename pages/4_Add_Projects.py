@@ -231,6 +231,7 @@ def load_project_pool(file_mtime):
 # Standard skill / technology choices used by the
 # "Add Skills for Projects" option.
 PROJECT_SKILL_OPTIONS = [
+    # Programming / Technology
     "C Programming",
     "C++ Programming",
     "Python Programming",
@@ -250,6 +251,16 @@ PROJECT_SKILL_OPTIONS = [
     "Competitive Coding Using Python",
     "Competitive Coding Using Java",
     "Data Analytics using R",
+
+    # Aptitude / Placement / Training
+    "Aptitude",
+    "Quantitative Aptitude",
+    "Logical Reasoning",
+    "Verbal Ability",
+    "Soft Skills",
+    "Communication Skills",
+    "Interview Preparation",
+    "Company Specific Training",
 ]
 
 DSA_TERMS = (
@@ -297,6 +308,23 @@ def topics_from_trainer_skills(skills):
     if re.search(r"\bpython\b", text):
         add("Python")
         add("DSA using Python")
+
+    if "aptitude" in text:
+        add("Aptitude")
+    if "quantitative aptitude" in text:
+        add("Quantitative Aptitude")
+    if "logical reasoning" in text:
+        add("Logical Reasoning")
+    if "verbal ability" in text:
+        add("Verbal Ability")
+    if "soft skills" in text or "soft skill" in text:
+        add("Soft Skills")
+    if "communication skills" in text or "communication skill" in text:
+        add("Communication Skills")
+    if "interview preparation" in text or "interview" in text:
+        add("Interview Preparation")
+    if "company specific training" in text or "company specific" in text:
+        add("Company Specific Training")
 
     if any(
         token in text
@@ -512,6 +540,49 @@ def project_matches_topic(subject, topic):
 
     if t in ("data science analytics", "data science", "data analytics"):
         return any(token in s for token in ("data science", "data analytics", "data analysis"))
+
+    # --------------------------------------------------------
+    # Aptitude / Placement / Soft Skills
+    # --------------------------------------------------------
+    if t in ("aptitude", "quantitative aptitude"):
+        return any(
+            token in s
+            for token in (
+                "aptitude",
+                "quantitative aptitude",
+                "quantitative",
+            )
+        )
+
+    if t == "logical reasoning":
+        return "logical reasoning" in s or "reasoning" in s
+
+    if t == "verbal ability":
+        return "verbal ability" in s or "verbal" in s
+
+    if t == "soft skills":
+        return "soft skills" in s or "soft skill" in s
+
+    if t == "communication skills":
+        return (
+            "communication skills" in s
+            or "communication skill" in s
+            or "communication" in s
+        )
+
+    if t == "interview preparation":
+        return (
+            "interview preparation" in s
+            or "interview" in s
+            or "placement preparation" in s
+        )
+
+    if t == "company specific training":
+        return (
+            "company specific training" in s
+            or "company specific" in s
+            or "company-specific" in s
+        )
 
     # Existing auxiliary topics supported by the page.
     if t in ("mongodb", "mongo db"):

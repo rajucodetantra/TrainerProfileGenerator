@@ -65,6 +65,7 @@ if "skills_processed" not in st.session_state:
 
 SKILL_OPTIONS = [
 
+    # Programming / Technology
     "C Programming",
     "C++ Programming",
 
@@ -92,7 +93,17 @@ SKILL_OPTIONS = [
     "Competitive Coding Using Python",
     "Competitive Coding Using Java",
 
-    "Data Analytics using R"
+    "Data Analytics using R",
+
+    # Aptitude / Placement / Soft Skills
+    "Aptitude",
+    "Quantitative Aptitude",
+    "Logical Reasoning",
+    "Verbal Ability",
+    "Soft Skills",
+    "Communication Skills",
+    "Interview Preparation",
+    "Company Specific Training"
 ]
 
 
@@ -586,6 +597,34 @@ def skill_to_training_expertise(skill):
 
         return "Data Analytics using R"
 
+
+    # -----------------------------------------------------
+    # APTITUDE / PLACEMENT / SOFT SKILLS
+    # -----------------------------------------------------
+
+    if skill == "Aptitude":
+        return "Aptitude Training"
+
+    if skill == "Quantitative Aptitude":
+        return "Quantitative Aptitude Training"
+
+    if skill == "Logical Reasoning":
+        return "Logical Reasoning Training"
+
+    if skill == "Verbal Ability":
+        return "Verbal Ability Training"
+
+    if skill == "Soft Skills":
+        return "Soft Skills Training"
+
+    if skill == "Communication Skills":
+        return "Communication Skills Training"
+
+    if skill == "Interview Preparation":
+        return "Interview Preparation Training"
+
+    if skill == "Company Specific Training":
+        return "Company Specific Training"
 
     # -----------------------------------------------------
     # DEFAULT
